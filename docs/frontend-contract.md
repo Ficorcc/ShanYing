@@ -210,7 +210,8 @@ feng-image-fade, feng-greeting, feng-visitor-stats
 12. **带运行期数据的页面必须按请求渲染**。
     说说、评论、浏览量这类运行期内容如果只在构建期烘焙，
     「在管理页发布 → 回前台看不到」。对应路由要 `prerender = false`，
-    并把 CMS 静态内容与 `var/store.json` 的运行期内容合并后再渲染。
+    并把 CMS 静态内容与运行期存储（Node 平台为 `var/store.json`，Cloudflare 平台为 KV `SHANYING_STORE`）
+    的内容合并后再渲染。
 13. **原主题自身也有孤儿模板，不要误判成移植遗漏**。
     `template-parts/activity.php`（最近一周动态）、`template-parts/post-card.php`
     的卡片取色在原主题里就没有被任何地方引用，上游同样不渲染。

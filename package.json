@@ -6,13 +6,18 @@
     "node": ">=22.23.4"
   },
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "node ./dist/server/entry.mjs",
+    "dev": "SHANYING_PLATFORM=node astro dev",
+    "dev:cf": "SHANYING_PLATFORM=cloudflare astro dev",
+    "build": "SHANYING_PLATFORM=cloudflare astro build",
+    "build:node": "SHANYING_PLATFORM=node astro build",
+    "preview": "SHANYING_PLATFORM=cloudflare astro preview",
+    "preview:node": "SHANYING_PLATFORM=node astro preview",
+    "deploy": "wrangler deploy",
     "check": "astro check",
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "^14.4.8",
     "@astrojs/markdown-satteri": "^0.4.10",
     "@astrojs/mdx": "^8.1.6",
     "@astrojs/node": "^11.1.13",
@@ -22,7 +27,9 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "typescript": "^6.0.3"
+    "@cloudflare/workers-types": "^5.20261115.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.162.0"
   },
   "description": "山映 ShanYing 的 Astro 主题移植版：WordPress 前台逐像素还原，PHP 模板层重写为 Astro 组件。"
 }

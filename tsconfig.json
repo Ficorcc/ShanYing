@@ -1,6 +1,15 @@
 {
   "extends": "astro/tsconfigs/strict",
-  "include": [".astro/types.d.ts", "**/*"],
+  "include": [".astro/types.d.ts", "worker-configuration.d.ts", "**/*"],
   // public/ 下是山映主题的构建产物（第三方 JS），不参与类型检查
-  "exclude": ["dist", "public", "var"]
+  "exclude": ["dist", "public", "var", ".wrangler"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      // 平台相关的存储后端，由 astro.config.mjs 的 vite.resolve.alias 决定实际指向
+      // （Node → src/lib/store/backend.node.ts，Cloudflare → backend.cloudflare.ts）。
+      // 两个实现函数签名一致，类型检查固定指向 Node 版。
+      "@shanying/store-backend": ["./src/lib/store/backend.node.ts"]
+    }
+  }
 }

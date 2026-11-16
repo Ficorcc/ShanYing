@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "shanying-astro-theme",
+  "compatibility_date": "2026-11-16",
+  "compatibility_flags": ["nodejs_compat"],
+  // 运行期数据（留言 / 说说 / 宠物进度 / 浏览量）落在这个 KV namespace
+  "kv_namespaces": [
+    {
+      "binding": "SHANYING_STORE",
+      "id": "local-shanying-store"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

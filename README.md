@@ -38,7 +38,7 @@ Node ≥ 22.23.4。
 | 项 | 方案 |
 | :-- | :-- |
 | 渲染 | **混合渲染** —— 内容页静态化，`/moments/`、`/essay/[slug]`、`/guestbook`、`/search` 与 `/api/*` 按请求渲染 |
-| 适配器 | `@astrojs/node`（standalone） |
+| 适配器 | `@astrojs/cloudflare`（Workers，**默认**）/ `@astrojs/node`（standalone，`SHANYING_PLATFORM=node`） |
 | 内容源 | Astro Content Collections（`src/content/essay/*.md`） |
 | 主题样式 | 直接复用原生产物 `public/assets/css/main.css`（603KB，含完整 reset 与深浅配色变量） |
 | 主题脚本 | 直接复用原生产物 `public/assets/js/main.js`（1.09MB，**零改动**） |
@@ -63,7 +63,8 @@ Node ≥ 22.23.4。
 | `/404` | SSR | 文章页 slug 找不到时要 `Astro.rewrite('/404')`；预渲染路由在服务端没有组件实例，rewrite 会抛 500 |
 | `/api/*`、`/admin` | SSR | 接口与管理页 |
 
-写操作统一落到 `var/store.json`，页面按请求渲染时把 CMS 静态内容与运行期内容合并。
+写操作落到平台相关的存储后端（Node → `var/store.json`，Cloudflare → KV），
+页面按请求渲染时把 CMS 静态内容与运行期内容合并。
 
 ---
 
@@ -73,7 +74,8 @@ Node ≥ 22.23.4。
 .
 ├── public/assets/            # 主题原生资源（css / js / images / fonts / models / vendor）
 ├── docs/frontend-contract.md # 前端 JS ↔ 服务端接口契约（移植必读）
-├── var/store.json            # 运行时写操作存储（留言 / 说说 / 站点信息）
+├── var/store.json            # 运行时写操作存储（Node 平台；留言 / 说说 / 站点信息）
+├── wrangler.jsonc            # Cloudflare Workers 配置（Worker 名 / KV 绑定 / 兼容标志）
 └── src/
     ├── config/
     │   ├── site.ts           # 站点信息：标题、域名、作者、导航
@@ -92,7 +94,11 @@ Node ≥ 22.23.4。
     │   ├── talks.ts          # 说说聚合（CMS + 运行期）
     │   ├── comments.ts       # 评论聚合（CMS + 运行期）
     │   ├── pet.ts            # 桌面宠物的成长值规则
-    │   ├── store.ts          # var/store.json 读写
+    │   ├── store.ts          # 运行时存储统一入口
+│   └── store/
+│       ├── types.ts              # 存储的数据形状与默认值
+│       ├── backend.node.ts       # Node 后端：var/store.json
+│       └── backend.cloudflare.ts # Cloudflare 后端：Workers KV
     │   └── …
     ├── components/           # Header / Footer / Dashboard / MusicPlayer / Hero / PetWidget / …
     └── pages/                # 页面路由（文章 / 归档 / 说说 / 友链 / 订阅 / 留言 / 关于 / 搜索 / 404 / admin）
@@ -104,10 +110,50 @@ Node ≥ 22.23.4。
 
 | 命令 | 作用 |
 | :-- | :-- |
-| `npm run dev` | 开发服务器 |
-| `npm run build` | 生产构建（静态页 + `dist/server/entry.mjs`） |
-| `npm run preview` | 运行构建产物 |
-| `npx astro check` | TypeScript / Astro 类型检查 |
+| `npm run dev` | 本地开发（Node 运行时，文件存储），默认 <http://localhost:4321> |
+| `npm run dev:cf` | 本地开发（Cloudflare workerd 运行时，KV 存储） |
+| `npm run build` | 生产构建（Cloudflare Workers 产物），输出 `dist/client` + `dist/server` |
+| `npm run build:node` | 生产构建（Node standalone 产物） |
+| `npm run preview` | 用 workerd 预览构建产物 |
+| `npm run deploy` | 部署到 Cloudflare Workers（`wrangler deploy`） |
+| `npx astro check` | 类型与模板检查 |
+| `npx astro dev --background` | 后台启动 dev server（`status` / `logs` / `stop` 管理） |
+
+---
+
+## 部署到 Cloudflare
+
+> **注意**：Astro 7 的 `@astrojs/cloudflare` 适配器**已移除 Cloudflare Pages 支持**，
+> 官方建议迁移到 **Cloudflare Workers**。本项目按 Workers 形态构建。
+
+```bash
+npm install
+npm run build          # 产出 dist/client（静态资源）+ dist/server（Worker 入口）
+npx wrangler deploy    # 部署到 Workers
+```
+
+部署前需要先登录并准备好 KV：
+
+```bash
+npx wrangler login
+npx wrangler kv namespace create SHANYING_STORE   # 把返回的 id 填进 wrangler.jsonc
+```
+
+`wrangler.jsonc` 里的关键项：
+
+| 项 | 说明 |
+| :-- | :-- |
+| `name` | Worker 名字，也是 `*.workers.dev` 的第一段 |
+| `kv_namespaces[SHANYING_STORE]` | 运行期数据（留言 / 说说 / 宠物进度 / 浏览量）的存储 |
+| `compatibility_flags` | `nodejs_compat` |
+
+绑定 `SESSION` 由适配器自动创建（Astro session 用），部署时 Cloudflare 会自动开通。
+
+部署完成后，在 Cloudflare 控制台的 **Workers → Settings → Domains & Routes** 里
+把 `ficor.cn` 绑定到这个 Worker 即可。
+
+**KV id 说明**：`wrangler.jsonc` 里预留的是本地开发用的占位 id（`local-shanying-store`），
+线上必须换成真实 id，否则读写会失败。
 
 ---
 
@@ -129,16 +175,24 @@ Node ≥ 22.23.4。
 
 ### 运行时存储位置
 
-写操作统一落到**项目根目录**的 `var/store.json`（不在 `src/` 内，避免触发内容集合重建）。
+写操作（留言 / 说说 / 浏览量 / 访客统计 / 宠物状态 / 游戏成绩）的落点**随平台切换**，
+接口是同一个（`src/lib/store.ts`），具体实现由 `astro.config.mjs` 的 `vite.resolve.alias` 切换：
 
-路径由「向上找 `astro.config.mjs`」推导，而不是按源码文件位置数层级 —— 打包后 `store.ts`
-会被塞进 `dist/server/` 的 chunk 里，按层级算会落到 `dist/var/`，重新构建即丢失数据。
+| 平台 | 后端 | 落点 |
+| :-- | :-- | :-- |
+| Node（`npm run dev` / `build:node`） | `src/lib/store/backend.node.ts` | `<项目根>/var/store.json` |
+| Cloudflare（`npm run build`） | `src/lib/store/backend.cloudflare.ts` | KV namespace `SHANYING_STORE`，key `shanying:store` |
 
-| 场景 | 落点 |
-| :-- | :-- |
-| `npm run dev` | `<项目根>/var/store.json` |
-| `node dist/server/entry.mjs`（任意目录启动） | `<项目根>/var/store.json` |
-| 设置 `SHANYING_STORE_DIR=/data/blog` | 直接用该目录（部署到持久化卷时用） |
+Node 版的路径由「向上找 `astro.config.mjs`」推导，而不是按源码文件位置数层级 ——
+打包后 `store.ts` 会被塞进 `dist/server/` 的 chunk 里，按层级算会落到 `dist/var/`，
+重新构建即丢失数据。也可以用 `SHANYING_STORE_DIR=/data/blog` 指定持久化目录。
+
+Cloudflare 版做了两件事：
+
+- Workers 没有可写文件系统，所以改用 KV；没配 KV 绑定时不报错，
+  读按空数据走、写静默丢弃，站点照常可用。
+- KV 同一个 key 每秒只能写一次，所以写入做了节流与合并：
+  相邻写入至少间隔 1 秒，等待期间到来的新写入会覆盖待写快照，一批突发只落一次盘。
 
 部署到容器或只读环境时，请用 `SHANYING_STORE_DIR` 指向可持久化的卷，
 否则运行时数据会随容器销毁而丢失。
