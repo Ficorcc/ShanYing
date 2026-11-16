@@ -158,8 +158,8 @@ feng-image-fade, feng-greeting, feng-visitor-stats
     人形图标，现已改为发布按钮）；它点击时代为点击视觉隐藏的 `[data-talk-create]`
     —— 主题 JS 只认后者（`feng-talk` 模块按它决定能不能发布），所以两个节点都必须留在 DOM 里。
   - `[data-talk-login]`（→ `/admin/`）同样保留但视觉隐藏，主题 JS 会按登录状态切换它的 `hidden`。
-  - 权限来自 `feng_talk_read?op=session` 的 `can_publish`：有管理会话 Cookie 时为真，
-    此时点发布按钮直接打开页内编辑器；否则提示去 `/admin` 登录。
+  - 权限来自 `feng_talk_read?op=session` 的 `can_publish`（页面脚本自己问一次接口）：
+    有管理会话 Cookie 时直接打开页内编辑器；没有就跳转 `/admin/` 登录页。
 - 友链：`.feng-friend-group` > `.feng-friends` > `a.feng-friend-chip`（内含
   `img[data-friend-fallback]` + `.feng-friend-avatar-initial`），
   以及 `dialog#friend-application` / `#friend-site-info`。

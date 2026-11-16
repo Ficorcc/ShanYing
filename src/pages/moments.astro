@@ -199,31 +199,42 @@ const UPLOAD_LIMIT = 4 * 1024 * 1024;
      * 发布说说按钮。
      *
      * 主题的 feng-talk 模块把编辑器入口挂在 [data-talk-create] 上，
-     * 那个节点是视觉隐藏的（仅屏幕阅读器可达），由这颗可见按钮代为点击：
-     *   - 已登录（/admin 登录过，带着管理会话 Cookie）→ 直接打开页内编辑器；
-     *   - 未登录 → 模块会拒绝打开，这里补一条提示，指路到 /admin。
+     * 那个节点是视觉隐藏的（仅屏幕阅读器可达），由这颗可见按钮代为点击。
+     *
+     * 两种走向：
+     *   - 带着管理会话（/admin 登录过）→ 直接打开页内编辑器写说说；
+     *   - 没登录 → 直接跳到登录页 /admin/，登录完再回来发布。
+     *
+     * 权限判定自己问一次接口，不依赖主题模块内部的 can_publish 状态：
+     * 主题那次请求是异步的，页面刚加载完的一小段时间里还没有结论，
+     * 那段时间里点按钮不该把已登录的人送去登录页。
      */
     const publish = document.querySelector('[data-talk-publish]');
     const trigger = document.querySelector('[data-talk-create]');
 
-    publish?.addEventListener('click', () => {
+    /** 问一次服务端：当前是不是站长。 */
+    async function isPublisher(): Promise<boolean> {
+      try {
+        const response = await fetch('/api/ajax?action=feng_talk_read&op=session', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const result = (await response.json()) as {
+          success?: boolean;
+          data?: { can_publish?: boolean };
+        };
+        return Boolean(result?.success && result?.data?.can_publish);
+      } catch {
+        return false;
+      }
+    }
+
+    publish?.addEventListener('click', async () => {
+      if (!(await isPublisher())) {
+        window.location.href = '/admin/';
+        return;
+      }
       if (trigger instanceof HTMLElement) trigger.click();
-      window.setTimeout(() => {
-        const compose = document.querySelector('[data-talk-compose]');
-        if (compose instanceof HTMLDialogElement && compose.open) return;
-        // 没打开编辑器 = 当前不是站长。主题的提示条已经冒出来了，
-        // 这里把文案换成更明确的一句，指路到 /admin。
-        const message = '请先到 /admin/ 登录（输入管理口令）后再发布说说。';
-        const notice = document.querySelector('[data-talk-notice]');
-        const text = notice?.querySelector('span');
-        if (notice instanceof HTMLElement && text && !notice.hidden) {
-          text.textContent = message;
-        } else {
-          const toast = (window as unknown as { fengToast?: (text: string, kind?: string) => void })
-            .fengToast;
-          toast?.(message, 'error');
-        }
-      }, 80);
     });
   </script>
 </BaseLayout>
