@@ -106,11 +106,6 @@ Node ≥ 22.23.4。
 
 ---
 
-
-
-
-
-
 ## 部署到 Cloudflare
 
 > **注意**：Astro 7 的 `@astrojs/cloudflare` 适配器**已移除 Cloudflare Pages 支持**，
@@ -182,8 +177,6 @@ wrangler 会自动开通好并把 id 回填到配置里（KV id 不是密钥，�
 对应原 WordPress 后台设置面板（不复刻后台 UI，改为代码配置）。
 
 `article_stale_days` 默认置 0：站内若以回溯旧文为主，180 天的「未更新」提示会让每篇都挂横幅。
-
-
 
 ### 运行时存储位置
 
