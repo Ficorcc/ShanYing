@@ -71,7 +71,7 @@ feng-image-fade, feng-greeting, feng-visitor-stats
 
 | 动作 | 方法 | 参数 | 认证 | 说明 |
 | --- | --- | --- | --- | --- |
-| `GET /api/admin` | GET | `token`（可选） | 管理令牌 **或** 会话 Cookie | 概览 / 说说 / 评论 / 站点信息 |
+| `GET /api/admin` | GET | `token`（可选） | 管理令牌 **或** 会话 Cookie | 概览 / 文章 / 说说 / 评论 / 友链 / 订阅源 / 字数统计 / 站点信息 |
 | `POST /api/admin` `admin.login` | POST | `token` | 管理令牌 | 校验口令，**下发签名会话 Cookie**（`Set-Cookie: shanying_admin=…; HttpOnly; SameSite=Lax`） |
 | `POST /api/admin` `admin.logout` | POST | — | 无 | 清除会话 Cookie |
 | `POST /api/admin` 其余动作 | POST | `token` 或会话 Cookie | 管理令牌 **或** 会话 Cookie | `talk.save` / `talk.delete` / `comment.approve` / `comment.delete` / `settings.save` |
@@ -82,6 +82,27 @@ feng-image-fade, feng-greeting, feng-visitor-stats
   **没配置口令时整个 `/api/admin` 关闭**（返回 503），不做开发模式全开。
 - 会话 Cookie 里只放「过期时间 + HMAC-SHA256 签名」，不放口令；口令一改，旧会话立刻失效。
 - 前台说说页靠这个 Cookie 判断能不能发布（见 §3 说说）。
+
+`GET /api/admin` 的返回字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `overview` | `{ posts, talks, comments, friends, subscriptions, pageViews, words }` |
+| `posts[]` | `{ slug, title, url, date, iso, category, tags[], words, views, commentCount }`，按发布时间倒序 |
+| `talks[]` | 运行期发布的说说，含 `id` / `content` / `createdAt` |
+| `comments[]` | `{ id, postId, author, content, date, approved }` |
+| `friends[]` | 启用中的友链（`name` / `url` / `description` / `feed`） |
+| `subscriptions[]` | `{ name, url, feedUrl, description, avatar }` |
+| `wordStats` | `{ total, categories:[{ category, count, words }] }`，分类按字数倒序 |
+| `settings` | 站点信息表单的初始值 |
+
+管理页（`/admin`）的交互约定：
+
+- 概览的统计卡片是 `<button data-list="posts|talks|comments|friends|subscriptions|words|views">`，
+  点击后用同一个 `<dialog id="admin-list">` 弹出对应明细列表（标题在 `[data-admin-list-title]`，
+  内容在 `[data-admin-list-body]`）；
+- 说说 / 评论列表里的操作按钮沿用 `data-talk-delete` / `data-comment-approve` / `data-comment-delete`，
+  与页面级委托一致，弹窗内外都能用；刷新数据后弹窗内容会同步重绘。
 
 只给后台用的动作：`feng_feed_refresh`、`feng_ai`。
 

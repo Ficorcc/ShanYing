@@ -89,6 +89,19 @@ const tokenEnabled = secretConfigured();
         border-radius: 18px;
         padding: 16px 18px;
         background: var(--xf-surface);
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+        transition: border-color .2s, transform .2s;
+      }
+      .feng-admin__stat:hover {
+        border-color: var(--xf-accent);
+        transform: translateY(-2px);
+      }
+      .feng-admin__stat:focus-visible {
+        outline: 2px solid var(--xf-focus);
+        outline-offset: 3px;
       }
       .feng-admin__stat strong {
         display: block;
@@ -98,6 +111,96 @@ const tokenEnabled = secretConfigured();
       .feng-admin__stat span {
         font-size: 12px;
         color: var(--xf-muted);
+      }
+      .feng-admin__hint {
+        margin: -14px 0 16px;
+        font-size: 12px;
+        color: var(--xf-muted);
+      }
+      .feng-admin__dialog {
+        width: min(760px, calc(100% - 32px));
+        max-height: min(72dvh, 660px);
+        padding: 0;
+        border: 1px solid var(--xf-line);
+        border-radius: 22px;
+        background: var(--xf-surface);
+        color: var(--xf-text);
+        box-shadow: var(--xf-shadow);
+        overflow: hidden;
+      }
+      .feng-admin__dialog::backdrop {
+        background: rgb(15 17 26 / .4);
+      }
+      .feng-admin__dialog-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--xf-line);
+      }
+      .feng-admin__dialog-head h2 {
+        font-size: 16px;
+        margin: 0;
+      }
+      .feng-admin__dialog-close {
+        border: 1px solid var(--xf-line);
+        background: transparent;
+        color: inherit;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 17px;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+      .feng-admin__dialog-close:hover {
+        border-color: var(--xf-accent);
+        color: var(--xf-accent);
+      }
+      .feng-admin__dialog-body {
+        padding: 4px 22px 22px;
+        max-height: calc(min(72dvh, 660px) - 74px);
+        overflow: auto;
+        overscroll-behavior: contain;
+      }
+      .feng-admin__tag {
+        display: inline-block;
+        font-size: 11px;
+        background: var(--xf-soft);
+        color: var(--xf-muted);
+        border-radius: 999px;
+        padding: 2px 9px;
+        margin: 4px 6px 0 0;
+      }
+      .feng-admin__link {
+        color: var(--xf-accent);
+        font-size: 12px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .feng-admin__link:hover {
+        text-decoration: underline;
+      }
+      .feng-admin__bar {
+        height: 6px;
+        border-radius: 999px;
+        background: var(--xf-soft);
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      .feng-admin__bar i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--xf-accent);
+      }
+      .feng-admin__total {
+        font-size: 34px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        margin: 4px 0 18px;
       }
       .feng-admin__card {
         border: 1px solid var(--xf-line);
@@ -276,6 +379,7 @@ const tokenEnabled = secretConfigured();
 
         <section class="feng-admin__panel" data-panel="overview">
           <div class="feng-admin__stats" data-stats></div>
+          <p class="feng-admin__hint">点击任意统计卡片，可以在这里弹出对应的明细列表进行管理。</p>
         </section>
 
         <section class="feng-admin__panel" data-panel="talks" hidden>
@@ -328,6 +432,14 @@ const tokenEnabled = secretConfigured();
       </div>
     </div>
 
+    <dialog class="feng-admin__dialog" id="admin-list">
+      <div class="feng-admin__dialog-head">
+        <h2 data-admin-list-title>列表</h2>
+        <button class="feng-admin__dialog-close" type="button" data-admin-list-close aria-label="关闭">×</button>
+      </div>
+      <div class="feng-admin__dialog-body" data-admin-list-body></div>
+    </dialog>
+
     <script is:inline define:vars={{ tokenEnabled }}>
       (function () {
         var root = document.querySelector('[data-admin]');
@@ -342,6 +454,12 @@ const tokenEnabled = secretConfigured();
           if (!node) return;
           node.textContent = text;
           node.style.color = isError ? '#e5484d' : '';
+        }
+
+        // 操作结果同时写到页头状态栏与说说面板，弹窗里操作时也能看到反馈。
+        function setActionStatus(text, isError) {
+          setStatus('[data-admin-status]', text, isError);
+          setStatus('[data-talk-status]', text, isError);
         }
 
         function api(path, body) {
@@ -367,27 +485,32 @@ const tokenEnabled = secretConfigured();
 
         function renderStats(data) {
           var stats = [
-            ['文章', data.overview.posts],
-            ['说说', data.overview.talks],
-            ['评论', data.overview.comments],
-            ['友链', data.overview.friends],
-            ['订阅源', data.overview.subscriptions],
-            ['总浏览', data.overview.pageViews],
+            ['posts', '文章', data.overview.posts],
+            ['talks', '说说', data.overview.talks],
+            ['comments', '评论', data.overview.comments],
+            ['friends', '友链', data.overview.friends],
+            ['subscriptions', '订阅源', data.overview.subscriptions],
+            ['words', '总字数', data.overview.words],
+            ['views', '总浏览', data.overview.pageViews],
           ];
           document.querySelector('[data-stats]').innerHTML = stats
             .map(function (item) {
-              return '<div class="feng-admin__stat"><strong>' + Number(item[1]).toLocaleString('zh-CN') + '</strong><span>' + esc(item[0]) + '</span></div>';
+              return (
+                '<button type="button" class="feng-admin__stat" data-list="' +
+                esc(item[0]) +
+                '"><strong>' +
+                Number(item[2]).toLocaleString('zh-CN') +
+                '</strong><span>' +
+                esc(item[1]) +
+                '</span></button>'
+              );
             })
             .join('');
         }
 
-        function renderTalks(talks) {
-          var list = document.querySelector('[data-talk-list]');
-          if (!talks.length) {
-            list.innerHTML = '<p class="feng-admin__status">还没有运行期发布的说说。</p>';
-            return;
-          }
-          list.innerHTML = talks
+        function talkRows(talks) {
+          if (!talks.length) return '<p class="feng-admin__status">还没有运行期发布的说说。</p>';
+          return talks
             .map(function (talk) {
               return (
                 '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
@@ -402,13 +525,9 @@ const tokenEnabled = secretConfigured();
             .join('');
         }
 
-        function renderComments(comments) {
-          var list = document.querySelector('[data-comment-list]');
-          if (!comments.length) {
-            list.innerHTML = '<p class="feng-admin__status">还没有评论。</p>';
-            return;
-          }
-          list.innerHTML = comments
+        function commentRows(comments) {
+          if (!comments.length) return '<p class="feng-admin__status">还没有评论。</p>';
+          return comments
             .map(function (comment) {
               return (
                 '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
@@ -433,6 +552,121 @@ const tokenEnabled = secretConfigured();
             .join('');
         }
 
+        function renderTalks(talks) {
+          document.querySelector('[data-talk-list]').innerHTML = talkRows(talks);
+        }
+
+        function renderComments(comments) {
+          document.querySelector('[data-comment-list]').innerHTML = commentRows(comments);
+        }
+
+        function postRows(posts) {
+          if (!posts.length) return '<p class="feng-admin__status">还没有已发布的文章。</p>';
+          return posts
+            .map(function (post) {
+              var tags = (post.tags || [])
+                .map(function (tag) {
+                  return '<span class="feng-admin__tag">' + esc(tag) + '</span>';
+                })
+                .join('');
+              return (
+                '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
+                esc(post.title) +
+                '</strong><p>' +
+                esc(post.date) +
+                ' · ' +
+                esc(post.category) +
+                ' · ' +
+                Number(post.words).toLocaleString('zh-CN') +
+                ' 字 · ' +
+                Number(post.views).toLocaleString('zh-CN') +
+                ' 浏览 · ' +
+                Number(post.commentCount).toLocaleString('zh-CN') +
+                ' 评论</p>' +
+                tags +
+                '</div><div class="feng-admin__actions"><a class="feng-admin__link" href="' +
+                esc(post.url) +
+                '" target="_blank" rel="noopener">查看</a></div></div>'
+              );
+            })
+            .join('');
+        }
+
+        function friendRows(friends) {
+          if (!friends.length) return '<p class="feng-admin__status">还没有启用中的友链。</p>';
+          return friends
+            .map(function (friend) {
+              return (
+                '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
+                esc(friend.name) +
+                '</strong><p>' +
+                esc(friend.description || '—') +
+                '</p>' +
+                (friend.feed ? '<p>订阅地址：' + esc(friend.feed) + '</p>' : '') +
+                '</div><div class="feng-admin__actions"><a class="feng-admin__link" href="' +
+                esc(friend.url) +
+                '" target="_blank" rel="noopener">访问</a></div></div>'
+              );
+            })
+            .join('');
+        }
+
+        function subscriptionRows(subscriptions) {
+          if (!subscriptions.length) return '<p class="feng-admin__status">还没有订阅源。</p>';
+          return subscriptions
+            .map(function (subscription) {
+              return (
+                '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
+                esc(subscription.name) +
+                '</strong><p>' +
+                esc(subscription.description || '—') +
+                '</p><p>订阅地址：' +
+                esc(subscription.feedUrl || '—') +
+                '</p></div><div class="feng-admin__actions"><a class="feng-admin__link" href="' +
+                esc(subscription.url) +
+                '" target="_blank" rel="noopener">主页</a></div></div>'
+              );
+            })
+            .join('');
+        }
+
+        function wordRows(stats) {
+          var categories = stats.categories || [];
+          var max = categories.reduce(function (top, item) {
+            return Math.max(top, item.words);
+          }, 0);
+          if (!max) max = 1;
+          var bars = categories
+            .map(function (item) {
+              return (
+                '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
+                esc(item.category) +
+                '</strong><p>' +
+                Number(item.count).toLocaleString('zh-CN') +
+                ' 篇 · ' +
+                Number(item.words).toLocaleString('zh-CN') +
+                ' 字</p><div class="feng-admin__bar"><i style="width:' +
+                Math.round((item.words / max) * 100) +
+                '%"></i></div></div></div>'
+              );
+            })
+            .join('');
+          return (
+            '<p class="feng-admin__total">' +
+            Number(stats.total).toLocaleString('zh-CN') +
+            '</p><p class="feng-admin__status">全站正文总字数（按字符统计），下面是按分类的分布。</p>' +
+            bars
+          );
+        }
+
+        function viewRows(views) {
+          return (
+            '<p class="feng-admin__total">' +
+            Number(views).toLocaleString('zh-CN') +
+            '</p><p class="feng-admin__status">站点累计浏览量，来自运行期的访问计数器。</p>'
+          );
+        }
+
         function renderSettings(settings) {
           var form = document.querySelector('[data-settings-form]');
           Object.keys(settings).forEach(function (key) {
@@ -441,16 +675,69 @@ const tokenEnabled = secretConfigured();
           });
         }
 
+        // —— 概览卡片弹出的明细列表 ——
+        var state = null;
+        var currentList = '';
+        var dialog = document.getElementById('admin-list');
+
+        var listTitles = {
+          posts: '文章列表',
+          talks: '说说列表',
+          comments: '评论列表',
+          friends: '友链列表',
+          subscriptions: '订阅列表',
+          words: '总字数',
+          views: '总浏览量',
+        };
+
+        function listBody(kind) {
+          if (!state) return '<p class="feng-admin__status">数据还没加载完，请稍候。</p>';
+          if (kind === 'posts') return postRows(state.posts || []);
+          if (kind === 'talks') return talkRows(state.talks || []);
+          if (kind === 'comments') return commentRows(state.comments || []);
+          if (kind === 'friends') return friendRows(state.friends || []);
+          if (kind === 'subscriptions') return subscriptionRows(state.subscriptions || []);
+          if (kind === 'words') return wordRows(state.wordStats || { total: 0, categories: [] });
+          if (kind === 'views') return viewRows(state.overview ? state.overview.pageViews : 0);
+          return '';
+        }
+
+        function paintList() {
+          var title = document.querySelector('[data-admin-list-title]');
+          var body = document.querySelector('[data-admin-list-body]');
+          if (title) title.textContent = listTitles[currentList] || '列表';
+          if (body) body.innerHTML = listBody(currentList);
+        }
+
+        function openList(kind) {
+          currentList = kind;
+          paintList();
+          if (dialog && !dialog.open) {
+            try {
+              dialog.showModal();
+            } catch (e) {
+              dialog.setAttribute('open', '');
+            }
+          }
+        }
+
+        function closeList() {
+          if (dialog && dialog.open) dialog.close();
+        }
+
         function refresh() {
           return api('/api/admin')
             .then(function (data) {
+              state = data;
               renderStats(data);
               renderTalks(data.talks);
               renderComments(data.comments);
               renderSettings(data.settings);
+              // 弹窗开着的时候同步刷新列表内容，避免操作后看到旧数据。
+              if (dialog && dialog.open) paintList();
             })
             .catch(function (error) {
-              setStatus('[data-talk-status]', error.message, true);
+              setActionStatus(error.message, true);
             });
         }
 
@@ -519,6 +806,31 @@ const tokenEnabled = secretConfigured();
           });
         });
 
+        // 概览统计卡片：点击后弹出对应明细列表。
+        document.querySelectorAll('[data-stats]').forEach(function (container) {
+          container.addEventListener('click', function (event) {
+            var target = event.target;
+            if (!(target instanceof Element)) return;
+            var card = target.closest('[data-list]');
+            if (!card) return;
+            openList(card.dataset.list);
+          });
+        });
+
+        var listClose = document.querySelector('[data-admin-list-close]');
+        if (listClose) {
+          listClose.addEventListener('click', function () {
+            closeList();
+          });
+        }
+
+        if (dialog) {
+          // 点击遮罩关闭弹窗（Esc 由 dialog 原生支持）。
+          dialog.addEventListener('click', function (event) {
+            if (event.target === dialog) closeList();
+          });
+        }
+
         document.addEventListener('click', function (event) {
           var target = event.target;
           if (!(target instanceof Element)) return;
@@ -526,11 +838,11 @@ const tokenEnabled = secretConfigured();
           if (talkDelete) {
             api('/api/admin', { action: 'talk.delete', id: talkDelete.dataset.talkDelete })
               .then(function () {
-                setStatus('[data-talk-status]', '已删除。');
+                setActionStatus('已删除。');
                 refresh();
               })
               .catch(function (error) {
-                setStatus('[data-talk-status]', error.message, true);
+                setActionStatus(error.message, true);
               });
             return;
           }
@@ -540,7 +852,7 @@ const tokenEnabled = secretConfigured();
             api('/api/admin', { action: 'comment.approve', id: approve.dataset.commentApprove, approved: next })
               .then(refresh)
               .catch(function (error) {
-                setStatus('[data-talk-status]', error.message, true);
+                setActionStatus(error.message, true);
               });
             return;
           }
@@ -549,7 +861,7 @@ const tokenEnabled = secretConfigured();
             api('/api/admin', { action: 'comment.delete', id: commentDelete.dataset.commentDelete })
               .then(refresh)
               .catch(function (error) {
-                setStatus('[data-talk-status]', error.message, true);
+                setActionStatus(error.message, true);
               });
           }
         });
@@ -564,11 +876,11 @@ const tokenEnabled = secretConfigured();
           })
             .then(function (data) {
               talkForm.reset();
-              setStatus('[data-talk-status]', data.message);
+              setActionStatus(data.message);
               refresh();
             })
             .catch(function (error) {
-              setStatus('[data-talk-status]', error.message, true);
+              setActionStatus(error.message, true);
             });
         });
 

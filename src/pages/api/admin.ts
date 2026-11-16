@@ -79,6 +79,17 @@ export const GET: APIRoute = async ({ request }) => {
   const talks = publicMemos();
   const comments = [...seedComments, ...store.comments];
   const friends = activeLinks();
+  const subscriptions = feed.subscriptions ?? [];
+  const words = posts.reduce((sum, post) => sum + post.body.length, 0);
+
+  // 字数分布：按分类汇总，方便从概览点进去看文章都写了些什么。
+  const byCategory = new Map<string, { count: number; words: number }>();
+  for (const post of posts) {
+    const bucket = byCategory.get(post.category) ?? { count: 0, words: 0 };
+    bucket.count += 1;
+    bucket.words += post.body.length;
+    byCategory.set(post.category, bucket);
+  }
 
   return ok({
     overview: {
@@ -86,10 +97,25 @@ export const GET: APIRoute = async ({ request }) => {
       talks: talks.length + store.talks.length,
       comments: comments.length,
       friends: friends.length,
-      subscriptions: feed.subscriptions?.length ?? 0,
+      subscriptions: subscriptions.length,
       pageViews: store.pageViews,
-      words: posts.reduce((sum, post) => sum + post.body.length, 0),
+      words,
     },
+    posts: posts
+      .slice()
+      .sort((a, b) => b.iso.localeCompare(a.iso))
+      .map((post) => ({
+        slug: post.slug,
+        title: post.title,
+        url: post.url,
+        date: post.dateLabel,
+        iso: post.iso,
+        category: post.category,
+        tags: post.tags,
+        words: post.body.length,
+        views: post.views,
+        commentCount: post.commentCount,
+      })),
     talks: [...store.talks].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     comments: comments
       .slice()
@@ -103,6 +129,19 @@ export const GET: APIRoute = async ({ request }) => {
         approved: comment.approved,
       })),
     friends,
+    subscriptions: subscriptions.map((subscription) => ({
+      name: subscription.name,
+      url: subscription.url,
+      feedUrl: subscription.feedUrl,
+      description: subscription.description ?? '',
+      avatar: subscription.avatar ?? '',
+    })),
+    wordStats: {
+      total: words,
+      categories: [...byCategory.entries()]
+        .map(([category, bucket]) => ({ category, ...bucket }))
+        .sort((a, b) => b.words - a.words),
+    },
     settings: store.settings,
   });
 };
