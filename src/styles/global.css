@@ -27,12 +27,13 @@ noscript .xf-global-loading {
 /* ---------------------------------------------------------------------------
  * 正文里的多图网格
  *
- * 旧博客导出的正文带 <div class="lared-grid-2"> / <div class="lared-grid-3">，
+ * 旧博客导出的正文带 <div class="lared-grid-2"> / <div class="lared-grid-3"> / <div class="lared-grid-4">，
  * 类名沿用旧站（lared = 旧主题名），内容原样保留不重写，这里只补样式：
- * 主题自身没有这两个类，不加的话图片会挤成一行。
+ * 主题自身没有这几个类，不加的话图片会挤成一行。
  * ---------------------------------------------------------------------- */
 .lared-grid-2,
-.lared-grid-3 {
+.lared-grid-3,
+.lared-grid-4 {
   display: grid;
   gap: 8px;
   margin-block: 1.25em;
@@ -46,8 +47,13 @@ noscript .xf-global-loading {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.lared-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .lared-grid-2 img,
-.lared-grid-3 img {
+.lared-grid-3 img,
+.lared-grid-4 img {
   display: block;
   width: 100%;
   height: auto;
@@ -55,12 +61,14 @@ noscript .xf-global-loading {
 }
 
 .lared-grid-2 figure,
-.lared-grid-3 figure {
+.lared-grid-3 figure,
+.lared-grid-4 figure {
   margin: 0;
 }
 
 .lared-grid-2 figcaption,
-.lared-grid-3 figcaption {
+.lared-grid-3 figcaption,
+.lared-grid-4 figcaption {
   margin-top: 6px;
   font-size: 0.85em;
   opacity: 0.72;
@@ -68,7 +76,8 @@ noscript .xf-global-loading {
 }
 
 @media (max-width: 640px) {
-  .lared-grid-3 {
+  .lared-grid-3,
+  .lared-grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
