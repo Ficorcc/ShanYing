@@ -1,0 +1,425 @@
+---
+/**
+ * 文章详情页。移植自 template-parts/content-single.php。
+ *
+ * 前端契约：
+ *   - #xf-article-text[data-feng-reading] → feng-reading 生成目录与专注模式
+ *   - [data-reading-tools] / [data-reading-toggle] → 阅读工具抽屉
+ *   - [data-related-panel] → feng-related 换一批
+ *   - [data-feng-share] → 分享面板
+ */
+import { render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Comments from '../../components/Comments.astro';
+import RelatedPosts from '../../components/RelatedPosts.astro';
+import { icon } from '../../lib/icons';
+import { SITE } from '../../config/site';
+import { THEME } from '../../lib/theme';
+import { entrySlug, getEssayBySlug } from '../../lib/posts';
+import {
+  getPublishedMeta,
+  readingMinutes,
+  wordCount,
+} from '../../lib/content';
+import { loadPostComments } from '../../lib/comments';
+
+/**
+ * 评论有运行期新增，前端提交后软导航回本页重新拉取，
+ * 所以文章页按请求渲染，评论才能立刻出现。
+ *
+ * SSR 模式下 getStaticPaths 不再生效，文章要在请求期按 slug 自己查。
+ */
+export const prerender = false;
+
+const entry = await getEssayBySlug(Astro.params.slug);
+
+if (!entry) {
+  // rewrite 只换渲染目标，状态码不会自动变成 404，这里显式指定。
+  Astro.response.status = 404;
+  return Astro.rewrite('/404');
+}
+
+const { Content } = await render(entry);
+
+const posts = await getPublishedMeta();
+const index = posts.findIndex((post) => post.slug === entrySlug(entry));
+const previous = index > 0 ? posts[index - 1] : null;
+const next = index >= 0 && index < posts.length - 1 ? posts[index + 1] : null;
+
+const words = wordCount(entry.body ?? '');
+const minutes = readingMinutes(entry.body ?? '');
+const views = entry.data.views ?? 0;
+/** 作者：优先用文章 frontmatter 里的 author，缺省回落到站点作者 */
+const postAuthor = entry.data.author || SITE.author;
+const comments = await loadPostComments(entrySlug(entry));
+const published = entry.data.date;
+const updated = entry.data.updated ?? published;
+
+const staleDays = THEME.article_stale_days;
+const ageDays = Math.floor((Date.now() - updated.getTime()) / 86400000);
+const isStale = staleDays > 0 && ageDays >= staleDays;
+
+const licenses: Record<string, { name: string; url: string; rule: string }> = {
+  by: {
+    name: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0/deed.zh-hans',
+    rule: '转载或改编时请注明作者和原文链接，保留版权与许可标识、提供许可链接，并注明修改。',
+  },
+  'by-nc-sa': {
+    name: 'CC BY-NC-SA 4.0',
+    url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans',
+    rule: '转载或改编时请署名、保留原文及许可链接并注明修改；仅限非商业用途，改编作品须以相同许可分享。',
+  },
+};
+const license = licenses[THEME.article_license];
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? SITE.url).href;
+const cover = entry.data.cover;
+---
+
+<BaseLayout
+  kind="post"
+  title={entry.data.title}
+  description={entry.data.excerpt}
+  ogImage={cover}
+>
+  {/*
+    data-feng-pet-post 必须是数字：前端宠物模块用 Number(dataset.fengPetPost)
+    取文章 ID，再据此发阅读票据。这里用文章在列表中的序号 + 1 作为稳定 ID。
+  */}
+  <article class="xf-article" id={`post-${entrySlug(entry)}`} data-feng-pet-post={index + 1}>
+    <header class={`xf-reading-cover feng-entry-hero${cover ? ' xf-reading-cover--image' : ''}`}>
+      {
+        cover && (
+          <div class="xf-reading-cover__media" aria-hidden="true">
+            <img src={cover} alt={entry.data.coverAlt ?? ''} fetchpriority="high" decoding="async" />
+          </div>
+        )
+      }
+      <div class="xf-reading-cover__copy feng-entry-hero__copy">
+        <h1>{entry.data.title || '无标题'}</h1>
+        <div class="feng-entry-tools" aria-label="文章信息与导航">
+          <div class="feng-entry-facts">
+            <span class="feng-entry-pill" tabindex="0">
+              <span class="feng-entry-pill__label">文章作者</span>
+              <span class="feng-entry-pill__value">
+                <span class="feng-entry-avatar" aria-hidden="true">
+                  <img src="/assets/images/brand/polar-icon.png" alt="" width="28" height="28" />
+                </span>
+                <span class="feng-entry-author">{postAuthor}</span>
+              </span>
+            </span>
+            <span class="feng-entry-pill" tabindex="0">
+              <span class="feng-entry-pill__label">文章发布日期</span>
+              <span class="feng-entry-pill__value">
+                <Fragment set:html={icon('calendar')} />
+                <time datetime={published.toISOString()}>
+                  {published.getFullYear()}年{published.getMonth() + 1}月{published.getDate()}日{' '}
+                  {published.toTimeString().slice(0, 5)}
+                </time>
+              </span>
+            </span>
+            <span class="feng-entry-pill" tabindex="0">
+              <span class="feng-entry-pill__label">热度</span>
+              <span class="feng-entry-pill__value">
+                <Fragment set:html={icon('heat')} />
+                <span>{views.toLocaleString('zh-CN')}</span>
+              </span>
+            </span>
+            <span class="feng-entry-pill" tabindex="0">
+              <span class="feng-entry-pill__label">本文共计</span>
+              <span class="feng-entry-pill__value">
+                <Fragment set:html={icon('words')} /><span>{words.toLocaleString('zh-CN')} 字</span>
+              </span>
+            </span>
+            <span class="feng-entry-pill" tabindex="0">
+              <span class="feng-entry-pill__label">预计阅读</span>
+              <span class="feng-entry-pill__value">
+                <Fragment set:html={icon('clock')} /><span>{minutes} 分钟</span>
+              </span>
+            </span>
+          </div>
+
+          <nav class="feng-entry-actions" aria-label="分享与相邻文章">
+            <div class="feng-share" data-feng-share={canonical} hidden>
+              <button
+                type="button"
+                class="feng-entry-round feng-share-toggle"
+                data-feng-share-toggle
+                aria-label="展开分享"
+                aria-expanded="false"
+                aria-controls="feng-share-options"
+              >
+                <span class="feng-share-glyph" set:html={icon('share')} />
+                <span class="feng-share-cross" set:html={icon('close')} />
+              </button>
+              <div
+                id="feng-share-options"
+                class="feng-share-options"
+                aria-label="分享方式"
+                aria-hidden="true"
+                inert
+              >
+                <button
+                  type="button"
+                  class="feng-share-choice feng-share-choice--wechat"
+                  data-feng-wechat
+                  aria-label="分享到微信（复制链接）"
+                  title="微信"
+                  set:html={icon('wechat')}
+                />
+                <a
+                  class="feng-share-choice feng-share-choice--weibo"
+                  href={`https://service.weibo.com/share/share.php?url=${encodeURIComponent(canonical)}&title=${encodeURIComponent(entry.data.title)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="分享到微博"
+                  title="微博"
+                  set:html={icon('weibo')}
+                />
+                <a
+                  class="feng-share-choice feng-share-choice--x"
+                  href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(canonical)}&text=${encodeURIComponent(entry.data.title)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="分享到 X（推特）"
+                  title="X / 推特"
+                  set:html={icon('x')}
+                />
+              </div>
+              <div class="feng-share-feedback" hidden>
+                <p role="status"></p>
+                <label hidden>文章链接<input type="text" readonly value={canonical} /></label>
+              </div>
+            </div>
+
+            {
+              previous ? (
+                <a
+                  class="feng-entry-round"
+                  href={previous.url}
+                  rel="prev"
+                  aria-label={`上一篇：${previous.title}`}
+                >
+                  <span class="feng-entry-round__glyph" set:html={icon('previous')} />
+                </a>
+              ) : (
+                <span
+                  class="feng-entry-round is-unavailable"
+                  aria-disabled="true"
+                  tabindex="0"
+                  aria-label="没有上一篇"
+                >
+                  <span class="feng-entry-round__glyph" set:html={icon('previous')} />
+                </span>
+              )
+            }
+            {
+              next ? (
+                <a
+                  class="feng-entry-round"
+                  href={next.url}
+                  rel="next"
+                  aria-label={`下一篇：${next.title}`}
+                >
+                  <span class="feng-entry-round__glyph" set:html={icon('next')} />
+                </a>
+              ) : (
+                <span
+                  class="feng-entry-round is-unavailable"
+                  aria-disabled="true"
+                  tabindex="0"
+                  aria-label="没有下一篇"
+                >
+                  <span class="feng-entry-round__glyph" set:html={icon('next')} />
+                </span>
+              )
+            }
+            <button
+              type="button"
+              class="feng-entry-round"
+              data-reading-toggle
+              hidden
+              aria-expanded="false"
+              aria-controls="feng-article-toc"
+              aria-label="打开文章目录"
+              title="文章目录"
+            >
+              <i class="fa-solid fa-list-ul" aria-hidden="true"></i>
+            </button>
+          </nav>
+        </div>
+      </div>
+      {
+        cover && (
+          <svg
+            class="feng-entry-curve"
+            viewBox="0 0 1000 24"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M0 0 C180 24 820 24 1000 0 V24 H0 Z" />
+          </svg>
+        )
+      }
+    </header>
+
+    {
+      isStale && (
+        <aside class="feng-article-age xf-reading" aria-label="文章时效提醒">
+          <strong>这篇文章已有 {ageDays} 天未更新</strong>
+          <p>
+            最后更新于
+            {updated.getFullYear()}年{updated.getMonth() + 1}月{updated.getDate()}日。文中涉及的信息、操作步骤或观点可能已有变化，请结合最新情况参考。
+          </p>
+        </aside>
+      )
+    }
+
+    {
+      (entry.data.summary || entry.data.excerpt) && (
+        <details class="feng-reading-summary" open>
+          <summary>
+            <Fragment set:html={icon('words')} />
+            <span>内容提要</span>
+            <Fragment set:html={icon('chevron-down')} />
+          </summary>
+          <div>
+            <p>{entry.data.summary || entry.data.excerpt}</p>
+          </div>
+        </details>
+      )
+    }
+
+    <div id="xf-article-text" class="xf-prose xf-container" data-feng-reading>
+      <Content />
+    </div>
+
+    {
+      THEME.article_copyright && (
+        <footer class="xf-article-footer xf-reading">
+          <div class="feng-article-ending">
+            <span class="feng-article-end-label" aria-label="正文结束">END</span>
+          </div>
+          <section class="feng-article-copyright" aria-label="文章署名与版权">
+            <span class="feng-copyright-watermark" aria-hidden="true">
+              <i class="fa-brands fa-creative-commons" />
+            </span>
+            <h2>文章信息与版权</h2>
+            <dl>
+              <div>
+                <dt>本文作者</dt>
+                <dd>{postAuthor}</dd>
+              </div>
+              <div>
+                <dt>文章分类</dt>
+                <dd>
+                  {(entry.data.categories?.length ? entry.data.categories : [entry.data.category])
+                    .filter(Boolean)
+                    .map((category) => (
+                      <a href={`/essay/category/${encodeURIComponent(category)}/`}>{category}</a>
+                    ))}
+                </dd>
+              </div>
+              <div>
+                <dt>首次发布</dt>
+                <dd>
+                  <time datetime={published.toISOString()}>
+                    {published.toLocaleString('zh-CN', { hour12: false })}
+                  </time>
+                </dd>
+              </div>
+              {
+                updated.getTime() !== published.getTime() && (
+                  <div>
+                    <dt>最后更新</dt>
+                    <dd>
+                      <time datetime={updated.toISOString()}>
+                        {updated.toLocaleString('zh-CN', { hour12: false })}
+                      </time>
+                    </dd>
+                  </div>
+                )
+              }
+            </dl>
+            <div class="feng-copyright-source">
+              <span>原文</span>
+              <a href={canonical}>{entry.data.title}</a>
+              <span class="feng-copyright-url">{canonical}</span>
+            </div>
+            {
+              entry.data.tags?.length > 0 && (
+                <nav class="feng-copyright-keywords" aria-label="文章关键词">
+                  <span>关键词</span>
+                  {entry.data.tags.map((tag) => (
+                    <a href={`/tags/${encodeURIComponent(tag)}/`}>#{tag}</a>
+                  ))}
+                </nav>
+              )
+            }
+            <p class="feng-copyright-rule">
+              © {new Date().getFullYear()} {SITE.author} ·{' '}
+              {
+                license ? (
+                  <>
+                    <a rel="license noopener" href={license.url} target="_blank">
+                      {license.name}
+                    </a>{' '}
+                    · {license.rule}
+                  </>
+                ) : THEME.article_license === 'custom' && THEME.article_license_note ? (
+                  THEME.article_license_note
+                ) : (
+                  '保留所有权利。除法律允许外，转载须获授权，并保留署名、标题、原文链接及版权声明。'
+                )}{' '}
+              <span>仅适用于作者享有权利的内容，另有声明及第三方素材依原授权。</span>
+            </p>
+          </section>
+        </footer>
+      )
+    }
+  </article>
+
+  <aside
+    class="feng-reading-tools"
+    id="feng-article-toc"
+    data-reading-tools
+    hidden
+    aria-label="阅读工具"
+  >
+    <div class="feng-reading-tools__heading">
+      <span>文章目录</span>
+      <button type="button" data-reading-close aria-label="关闭文章目录" set:html={icon('close')} />
+    </div>
+    <details class="feng-reading-toc" open>
+      <summary>目录</summary>
+      <nav aria-label="文章目录">
+        <p>本文目录</p>
+        <ol></ol>
+      </nav>
+    </details>
+    <button
+      type="button"
+      data-reading-focus
+      aria-pressed="false"
+      aria-label="开启专注阅读"
+      title="专注阅读"
+      set:html={icon('reading')}
+    />
+    <button
+      type="button"
+      data-reading-print
+      aria-label="打印文章"
+      title="打印文章"
+      set:html={icon('print')}
+    />
+    <span class="screen-reader-text" role="status" data-reading-status></span>
+  </aside>
+
+  <RelatedPosts posts={posts} currentSlug={entrySlug(entry)} />
+
+  <div class="xf-reading feng-comment-panel">
+    <Comments postId={entrySlug(entry)} comments={comments} />
+  </div>
+</BaseLayout>

@@ -1,0 +1,125 @@
+---
+/**
+ * 音乐播放器。移植自 template-parts/music-player.php。
+ *
+ * 歌单通过 <script type="application/json" data-music-data> 传给前端，
+ * 由 feng-music 模块接管播放、歌词、进度与右键工具菜单。
+ */
+import { THEME } from '../lib/theme';
+import { icon } from '../lib/icons';
+
+const tracks = THEME.music_tracks;
+---
+
+<section class="feng-music" data-feng-music hidden aria-label="音乐播放器">
+  <script
+    is:inline
+    type="application/json"
+    data-music-data
+    set:html={JSON.stringify(tracks)}
+  />
+  <div class="feng-music__capsule">
+    <button class="feng-music__art" type="button" data-music-art-toggle aria-label="播放或暂停音乐">
+      <img data-music-cover alt="" hidden />
+      <span data-music-art-icon set:html={icon('music')} />
+    </button>
+    <button
+      class="feng-music__copy"
+      type="button"
+      data-music-expand
+      aria-controls="feng-music-panel"
+      aria-expanded="false"
+    >
+      <strong data-music-title>给此刻一点音乐</strong>
+      <span data-music-line>展开歌单与歌词</span>
+    </button>
+    <button class="feng-music__play" type="button" data-music-play aria-label="播放">
+      <span data-music-play-icon set:html={icon('play')} />
+      <span data-music-pause-icon hidden set:html={icon('pause')} />
+    </button>
+    <button
+      class="feng-music__list"
+      type="button"
+      data-music-list-toggle
+      aria-label="打开歌单"
+      aria-expanded="false"
+      aria-controls="feng-music-panel"
+      set:html={icon('playlist')}
+    />
+    <span class="feng-music__mini-progress" aria-hidden="true">
+      <i data-music-mini-progress></i>
+    </span>
+  </div>
+
+  <div class="feng-music__panel" id="feng-music-panel" hidden>
+    <header>
+      <strong>此刻正在听</strong>
+      <button type="button" data-music-close aria-label="收起播放器" set:html={icon('close')} />
+    </header>
+    <div class="feng-music__lyrics" data-music-lyrics tabindex="0" aria-label="歌词"></div>
+    <div class="feng-music__seek">
+      <input data-music-seek type="range" min="0" max="1000" value="0" aria-label="播放进度" />
+      <div>
+        <time data-music-elapsed>0:00</time>
+        <time data-music-duration>0:00</time>
+      </div>
+    </div>
+    <div class="feng-music__controls">
+      <button type="button" data-music-prev aria-label="上一首" set:html={icon('previous')} />
+      <button type="button" data-music-toggle aria-label="播放或暂停">播放 / 暂停</button>
+      <button type="button" data-music-next aria-label="下一首" set:html={icon('next')} />
+      <label>
+        音量
+        <input data-music-volume type="range" min="0" max="100" value="65" aria-label="音量" />
+      </label>
+    </div>
+    <ol class="feng-music__playlist" data-music-playlist aria-label="歌单"></ol>
+    <p class="feng-music__status" data-music-status role="status"></p>
+  </div>
+
+  <div class="feng-music__menu" data-music-menu role="menu" aria-label="快捷工具" hidden>
+    <div class="feng-music__menu-nav">
+      <button type="button" role="menuitem" data-tool="back" aria-label="后退" set:html={icon('arrow-left')} />
+      <button
+        type="button"
+        role="menuitem"
+        data-tool="forward"
+        aria-label="前进"
+        set:html={icon('arrow-right')}
+      />
+      <button type="button" role="menuitem" data-tool="reload" aria-label="刷新" set:html={icon('refresh')} />
+      <button type="button" role="menuitem" data-tool="top" aria-label="回到顶部" set:html={icon('arrow-up')} />
+    </div>
+    <div data-tool-selection hidden>
+      <button role="menuitem" type="button" data-tool="copy-selection">
+        <Fragment set:html={icon('copy')} />复制选中文字
+      </button>
+      <button role="menuitem" type="button" data-tool="quote">
+        <Fragment set:html={icon('comment')} />引用到评论
+      </button>
+      <button role="menuitem" type="button" data-tool="search">
+        <Fragment set:html={icon('search')} />站内搜索
+      </button>
+      <button role="menuitem" type="button" data-tool="web-search">
+        <Fragment set:html={icon('search')} />百度搜索
+      </button>
+    </div>
+    <button type="button" role="menuitem" data-tool="play">
+      <Fragment set:html={icon('play')} /><span data-tool-play-label>播放音乐</span>
+    </button>
+    <button type="button" role="menuitem" data-tool="prev">
+      <Fragment set:html={icon('previous')} />切换到上一首
+    </button>
+    <button type="button" role="menuitem" data-tool="next">
+      <Fragment set:html={icon('next')} />切换到下一首
+    </button>
+    <button type="button" role="menuitem" data-tool="copy-title">
+      <Fragment set:html={icon('copy')} />复制歌名
+    </button>
+    <button type="button" role="menuitem" data-tool="playlist">
+      <Fragment set:html={icon('playlist')} />打开歌单
+    </button>
+  </div>
+
+  <span class="feng-music__notice" data-music-notice role="status" hidden></span>
+</section>

@@ -1,0 +1,32 @@
+---
+/**
+ * 分类页。分类名即路由参数。
+ */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import BrowseList from '../../../components/BrowseList.astro';
+import { getPublishedMeta, categoryList } from '../../../lib/content';
+
+export async function getStaticPaths() {
+  const posts = await getPublishedMeta();
+  return categoryList(posts).map((category) => ({
+    params: { category: category.name },
+    props: { category },
+  }));
+}
+
+const { category } = Astro.props;
+const posts = await getPublishedMeta();
+const categories = categoryList(posts);
+const items = posts.filter((post) => post.categories.includes(category.name));
+---
+
+<BaseLayout title={category.name} description={`关于${category.name}的记录与分享。`}>
+  <BrowseList
+    title={category.name}
+    posts={items}
+    mode="category"
+    description={`关于${category.name}，一些实践与记录。`}
+    categories={categories}
+    activeCategory={category.name}
+  />
+</BaseLayout>

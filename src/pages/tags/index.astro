@@ -1,0 +1,30 @@
+---
+/**
+ * 标签总览。
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPublishedMeta, tagList } from '../../lib/content';
+
+const posts = await getPublishedMeta();
+const tags = tagList(posts);
+---
+
+<BaseLayout title="标签" description="全部文章标签。">
+  <section class="feng-panel feng-special-page feng-tag-index">
+    <header class="feng-page-heading feng-unified-heading">
+      <h1><i class="fa-solid fa-tags" aria-hidden="true"></i> 标签</h1>
+      <span>{tags.length} 个关键词</span>
+    </header>
+    <div class="feng-archive-tag-list">
+      {
+        tags.map((tag) => (
+          <a href={`/tags/${encodeURIComponent(tag.name)}/`} aria-label={`${tag.name}，${tag.count} 篇文章`}>
+            {tag.name}
+            <sup>{tag.count}</sup>
+          </a>
+        ))
+      }
+      {tags.length === 0 && <p class="feng-empty">还没有标签。</p>}
+    </div>
+  </section>
+</BaseLayout>

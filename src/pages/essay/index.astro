@@ -1,0 +1,15 @@
+---
+/**
+ * 文章列表页。使用山映的浏览面（template-parts/browse.php）。
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BrowseList from '../../components/BrowseList.astro';
+import { getPublishedMeta, categoryList } from '../../lib/content';
+
+const posts = await getPublishedMeta();
+const categories = categoryList(posts);
+---
+
+<BaseLayout title="文章" description="全部文章，按发布时间排列。">
+  <BrowseList title="全部文章" posts={posts} mode="category" categories={categories} />
+</BaseLayout>

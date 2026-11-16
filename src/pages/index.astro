@@ -1,0 +1,28 @@
+---
+/**
+ * 首页。移植自 WordPress 的 index.php（首页分支 = Hero + 分类集合）。
+ *
+ * 头部搜索框历史上提交到 `/?s=`，这里保留兼容：命中后跳到 /search。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import Collections from '../components/Collections.astro';
+import { SITE } from '../config/site';
+import { getPublishedMeta, categoryList } from '../lib/content';
+
+const posts = await getPublishedMeta();
+const categories = categoryList(posts);
+---
+
+<BaseLayout kind="home" description={SITE.description}>
+  <script is:inline>
+    /* 兼容旧的 /?s= 搜索入口 */
+    (function () {
+      if (new URL(location.href).searchParams.get('s')) {
+        location.replace('/search' + location.search);
+      }
+    })();
+  </script>
+  <Hero />
+  <Collections posts={posts} categories={categories} />
+</BaseLayout>

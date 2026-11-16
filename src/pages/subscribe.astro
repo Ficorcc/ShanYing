@@ -1,0 +1,72 @@
+---
+/**
+ * 订阅页。移植自 pages/subscriptions.php。
+ *
+ * feng-feed 模块会接管 [data-feed-page] 内的翻页与周期切换，
+ * 用 /api/ajax?action=feng_feed_list 取得整块 HTML 替换 [data-feed-entries]。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { icon } from '../lib/icons';
+import { feed } from '../lib/data';
+import { renderFeedRows, type FeedRow } from '../lib/render';
+
+const sources = feed.subscriptions ?? [];
+const rows: FeedRow[] = sources.flatMap((source) =>
+  (source.latestItems ?? []).map((item) => ({
+    title: item.title,
+    url: item.url,
+    date: item.date,
+    summary: item.summary,
+    source: source.name,
+  })),
+);
+const today = new Date().toISOString().slice(0, 10);
+const todayCount = rows.filter((row) => (row.date ?? '').startsWith(today)).length;
+---
+
+<BaseLayout kind="page" title="订阅" description="把朋友们的更新，放在这里。">
+  <div class="feng-panel feng-special-page feng-subscriptions" data-feed-page>
+    <header class="feng-page-heading feng-feed-hero feng-unified-heading">
+      <div class="feng-feed-hero-copy">
+        <h1><i class="fa-solid fa-rss feng-page-title-icon" aria-hidden="true"></i> 订阅</h1>
+      </div>
+      <div class="feng-feed-overview">
+        <span><Fragment set:html={icon('rss')} /> <strong>{sources.length}</strong> 个订阅</span>
+        <span><strong data-feed-today-number>{todayCount}</strong> 篇今日更新</span>
+        <span class="feng-feed-last-sync">
+          <Fragment set:html={icon('clock')} /> <span>由 CMS 后台同步</span>
+        </span>
+      </div>
+    </header>
+
+    <div class="feng-feed-toolbar">
+      <div class="feng-feed-tabs" role="group" aria-label="更新范围">
+        <button type="button" data-feed-period="all" aria-pressed="true">全部动态</button>
+        <button type="button" data-feed-period="today" aria-pressed="false">今日更新</button>
+      </div>
+    </div>
+
+    <p class="feng-feed-status" data-feed-status role="status">
+      {rows.length ? `已收录 ${rows.length} 篇文章` : '还没有同步到动态'}
+    </p>
+
+    <div class="feng-feed-entries" data-feed-entries set:html={renderFeedRows(rows)} />
+
+    <div class="feng-feed-empty" data-feed-empty hidden={rows.length > 0}>
+      <Fragment set:html={icon('rss')} />
+      <h2>{sources.length ? '等待下一封远方来信' : '把朋友的更新，放在这里'}</h2>
+      <p>
+        {sources.length
+          ? '订阅源同步后，新文章会出现在这里。'
+          : '添加友情链接的 RSS 地址后，就能在这里看到大家的文章。'}
+      </p>
+      <a href="/admin/">设置订阅 <Fragment set:html={icon('arrow-up-right')} /></a>
+    </div>
+
+    <button type="button" class="feng-feed-more" data-feed-more hidden>再看一些 <Fragment set:html={icon('arrow-down')} /></button>
+
+    <footer class="feng-feed-footer">
+      <span>按原文发布时间排序 · 点击标题前往朋友的博客</span>
+    </footer>
+  </div>
+</BaseLayout>

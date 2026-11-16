@@ -1,0 +1,344 @@
+---
+/**
+ * 友链页。移植自 pages/friends.php。
+ *
+ * feng-friend-avatar 模块依赖 [data-friend-game] / [data-game-*] / 三个 dialog，
+ * 缺失对应节点时游戏与申请入口会静默失效。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { icon } from '../lib/icons';
+import { SITE } from '../config/site';
+import { activeLinks, publicMemos } from '../lib/content';
+
+const friends = activeLinks();
+const groups = friends.reduce<Record<string, typeof friends>>((acc, friend) => {
+  const key = friend.description && /友链/.test(friend.description) ? '友链' : '朋友';
+  (acc[key] ??= []).push(friend);
+  return acc;
+}, {});
+
+const friendInfo = {
+  '博主名称': SITE.author,
+  '站点名称': SITE.title,
+  '站点描述': SITE.subtitle,
+  '站点网址': SITE.url,
+  'RSS 链接': `${SITE.url}/rss.xml`,
+  '头像地址': '/assets/images/brand/polar-icon.png',
+};
+
+/** 头像加载失败时的兜底站点图标（与原主题一致，用 favicon.la 取站点图标）。 */
+function friendFallback(url: string): string {
+  try {
+    const domain = new URL(url).hostname.replace(/^www\./, '');
+    return domain ? `https://favicon.la/${encodeURIComponent(domain)}` : '';
+  } catch {
+    return '';
+  }
+}
+const friendCopy = Object.entries(friendInfo)
+  .map(([label, value]) => `${label}：${value}`)
+  .join('\n');
+---
+
+<BaseLayout kind="page" title="友链" description="在独立的角落，遇见同样认真记录生活的人。">
+  <div class="feng-panel feng-special-page feng-friends-page">
+    <header class="feng-unified-heading">
+      <h1><i class="fa-solid fa-link feng-page-title-icon" aria-hidden="true"></i> 友链</h1>
+      <div class="feng-friend-header-actions">
+        <button
+          type="button"
+          class="feng-submit"
+          data-game-rank-open
+          aria-label="游戏排行榜"
+          title="游戏排行榜"
+          aria-haspopup="dialog"
+          aria-controls="friend-game-ranks"
+        >
+          <i class="fa-solid fa-gamepad" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="feng-submit"
+          data-friend-info-open
+          aria-label="我的站点资料"
+          title="我的站点资料"
+          aria-haspopup="dialog"
+          aria-controls="friend-site-info"
+        >
+          <i class="fa-regular fa-address-card" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="feng-submit"
+          data-friend-open
+          aria-label="申请友链"
+          title="申请友链"
+          aria-haspopup="dialog"
+          aria-controls="friend-application"
+        >
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span class="feng-friend-apply-label">申请友链</span>
+        </button>
+      </div>
+    </header>
+
+    <p class="feng-page-introduction">在独立的角落，遇见同样认真记录生活的人。</p>
+
+    <div class="feng-game-player" data-game-player></div>
+    <div class="feng-game-type-tabs" role="group" aria-label="游戏类型">
+      <button type="button" data-game-type="memory" aria-pressed="true">博友配对</button>
+      <button type="button" data-game-type="emoji" aria-pressed="false">头像消消乐</button>
+    </div>
+
+    <section class="feng-emoji-game" data-emoji-game hidden>
+      <header>
+        <h2>头像消消乐</h2>
+        <button type="button" data-emoji-restart>重新开始</button>
+      </header>
+      <p>点选两个相邻头像进行交换，横向或纵向凑齐三个即可消除。30 步内挑战 2000 分。</p>
+      <div class="feng-game-stats">
+        <span data-emoji-score>0 分</span>
+        <span data-emoji-moves>剩余 30 步</span>
+      </div>
+      <div class="feng-emoji-board" data-emoji-board role="group" aria-label="博友头像棋盘"></div>
+      <p data-emoji-status role="status" aria-live="polite"></p>
+      <section class="feng-game-ranking">
+        <h3>头像消消乐 · 积分榜</h3>
+        <p>休闲积分记录 · 分数优先，同分比较用时</p>
+        <ol data-match-ranking></ol>
+        <p data-match-rank-status role="status"></p>
+      </section>
+    </section>
+
+    <section class="feng-friend-play" data-friend-game data-endpoint="/api/ajax" data-nonce="shanying">
+      <header>
+        <div>
+          <h2>在这里，遇见朋友</h2>
+          <p>翻开头像，找到同一位朋友。</p>
+        </div>
+        <div>
+          <select data-game-size aria-label="棋盘难度">
+            <option value="16">轻松 · 16 格 / 8 对</option>
+            <option value="64">挑战 · 64 格 / 32 对</option>
+          </select>
+          <button type="button" data-game-start>玩一下</button>
+          <button type="button" data-game-exit hidden>返回头像墙</button>
+        </div>
+      </header>
+      <p class="feng-game-rules">
+        玩法：每次翻开两张牌，相同则配对成功，不同则自动盖回。找到全部配对即通关；翻牌越少排名越高，同次数按用时排序。
+      </p>
+      <div class="feng-friend-wall" data-game-wall>
+        {
+          friends.map((friend) => (
+            <a
+              data-game-friend
+              data-name={friend.name}
+              data-description={friend.description}
+              href={friend.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={friend.name}
+              title={friend.name}
+            >
+              {friend.avatar ? (
+                <img src={friend.avatar} alt="" width="112" height="112" loading="lazy" />
+              ) : (
+                <span aria-hidden="true">{friend.name.slice(0, 1)}</span>
+              )}
+            </a>
+          ))
+        }
+      </div>
+      <div class="feng-game-layout">
+        <div data-game-area hidden>
+          <div class="feng-game-stats">
+            <span data-game-time>00:00</span>
+            <span data-game-moves>翻牌 0 次</span>
+            <span data-game-score>配对 0 / 8</span>
+          </div>
+          <div class="feng-game-board" data-game-board></div>
+          <div class="feng-game-friends" data-game-friends aria-label="本局认识的博友"></div>
+          <div class="feng-game-result" data-game-result role="status" aria-live="polite">
+            点击任意卡片开始计时。
+          </div>
+        </div>
+        <section class="feng-game-ranking">
+          <h3>好友配对榜</h3>
+          <select data-game-sort aria-label="排行榜排序">
+            <option value="moves">最少翻牌</option>
+            <option value="time">最快通关</option>
+          </select>
+          <p>休闲榜单 · 使用评论昵称或登录昵称，未填写时显示“访客”；16 格与 64 格分别计榜。</p>
+          <ol data-game-ranking></ol>
+          <p data-game-rank-status role="status"></p>
+        </section>
+      </div>
+    </section>
+
+    {
+      Object.entries(groups).map(([group, items]) => (
+        <section class="feng-friend-group">
+          <div class="feng-group-title" data-xf-reveal>
+            <h2>
+              <span class="feng-friend-group-icon" set:html={icon('folder')} />
+              {group}
+            </h2>
+            <span>{items.length} 个邻居</span>
+          </div>
+          <div class="feng-friends">
+            {items.map((friend) => (
+              <a
+                class="feng-friend-chip"
+                href={friend.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={friend.description}
+              >
+                <span class="feng-friend-chip-avatar">
+                  {/*
+                    头像结构对齐原主题 feng_friend_avatar()：
+                    img[data-friend-fallback] 加载失败时，前端会换成站点徽标，
+                    再失败就显示紧邻的 .feng-friend-avatar-initial。
+                  */}
+                  <img
+                    class="feng-friend-avatar-img"
+                    src={friend.avatar || friendFallback(friend.url)}
+                    data-friend-fallback={friendFallback(friend.url)}
+                    width="64"
+                    height="64"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span class="feng-friend-avatar-initial" hidden aria-hidden="true">
+                    <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                  </span>
+                </span>
+                <strong>{friend.name}</strong>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+    {friends.length === 0 && <p class="feng-empty">这里为下一次相遇留了位置。</p>}
+
+    <dialog id="friend-game-ranks" class="feng-friend-info" aria-labelledby="friend-ranks-title">
+      <header>
+        <h2 id="friend-ranks-title">游戏排行榜</h2>
+        <button type="button" data-friend-close aria-label="关闭排行榜">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </header>
+      <div class="feng-rank-controls">
+        <select data-rank-size aria-label="游戏难度">
+          <option value="16">16 格 · 8 对</option>
+          <option value="64">64 格 · 32 对</option>
+          <option value="match">头像消消乐 · 积分榜</option>
+        </select>
+        <select data-rank-order aria-label="排名方式">
+          <option value="moves">最少翻牌</option>
+          <option value="time">最快通关</option>
+        </select>
+      </div>
+      <ol data-rank-modal-list></ol>
+      <p data-rank-modal-status role="status"></p>
+    </dialog>
+
+    <dialog id="friend-site-info" class="feng-friend-info" aria-labelledby="friend-site-info-title">
+      <header>
+        <div>
+          <p class="xf-section-kicker">LET’S CONNECT</p>
+          <h2 id="friend-site-info-title">我的站点资料</h2>
+        </div>
+        <button
+          type="button"
+          data-friend-copy={friendCopy}
+          aria-label="复制全部站点资料"
+          title="复制全部"
+        >
+          <i class="fa-regular fa-copy" aria-hidden="true"></i>
+        </button>
+        <button type="button" data-friend-close aria-label="关闭站点资料">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </header>
+      <div class="feng-site-card-identity">
+        <img src="/assets/images/brand/polar-icon.png" width="72" height="72" alt={SITE.title} />
+        <div>
+          <strong>{SITE.title}</strong>
+          <p>{SITE.subtitle}</p>
+          <small>{SITE.author}</small>
+        </div>
+      </div>
+      <dl>
+        {
+          Object.entries(friendInfo)
+            .filter(([label]) => label !== '博主名称')
+            .map(([label, value]) => (
+              <div>
+                <dt>{label}</dt>
+                <dd class="feng-site-card-url">{value}</dd>
+                <button
+                  type="button"
+                  data-friend-copy={value}
+                  aria-label={`复制${label}`}
+                  title={`复制${label}`}
+                >
+                  <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                </button>
+              </div>
+            ))
+        }
+      </dl>
+    </dialog>
+
+    <dialog class="feng-friend-apply" id="friend-application" aria-labelledby="friend-application-title">
+      <header>
+        <h2 id="friend-application-title">让我们成为邻居</h2>
+        <div class="feng-friend-mode" role="group" aria-label="申请类型">
+          <button type="button" data-friend-mode="apply" aria-pressed="true">申请友链</button>
+          <button type="button" data-friend-mode="edit" aria-pressed="false">修改友链</button>
+        </div>
+        <button type="button" data-friend-close aria-label="关闭申请表">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </header>
+      <p>填写站点资料，审核通过后会在友链页展示。</p>
+      <form action="/api/ajax" method="post" data-no-pjax>
+        <input type="hidden" name="action" value="feng_friend_apply" />
+        <input type="hidden" name="friend_mode" value="apply" />
+        <label class="feng-friend-apply__wide">
+          常用邮箱
+          <input name="site_email" type="email" required maxlength="254" autocomplete="email" aria-describedby="friend-email-help" />
+          <small id="friend-email-help">作为后续修改的匹配依据，仅保存哈希。</small>
+        </label>
+        <div class="feng-friend-apply__wide feng-friend-verification" data-friend-verification hidden>
+          <label>
+            邮箱验证码
+            <input name="email_code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6 位验证码" disabled />
+          </label>
+          <button type="button" data-friend-send-code data-endpoint="/api/ajax">发送验证码</button>
+          <input type="hidden" name="email_token" />
+          <small data-friend-code-status role="status"></small>
+        </div>
+        <label>站点名称<input name="site_name" required maxlength="100" autocomplete="organization" /></label>
+        <label>站点地址<input name="site_url" type="url" required maxlength="255" placeholder="https://example.com" autocomplete="url" /></label>
+        <label class="feng-friend-apply__wide">
+          一句介绍
+          <textarea name="site_description" required maxlength="255" rows="2" placeholder="你在这里记录些什么？"></textarea>
+        </label>
+        <label>
+          头像地址（选填）
+          <input name="site_avatar" type="text" maxlength="255" placeholder="图片网址" />
+        </label>
+        <label>RSS 地址（选填）<input name="site_rss" type="url" maxlength="255" placeholder="https://…/rss.xml" /></label>
+        <div class="feng-friend-apply__wide">
+          <button class="feng-submit" type="submit">提交申请</button>
+          <small>请填写可公开展示的信息；头像可留空，届时显示默认头像。</small>
+        </div>
+      </form>
+    </dialog>
+  </div>
+</BaseLayout>

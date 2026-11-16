@@ -1,0 +1,224 @@
+---
+/**
+ * 评论区。移植自 comments.php。
+ *
+ * 前端契约：
+ *   - 表单必须 id="commentform"，字段 id 分别为 comment / author / email / url
+ *   - 表单带 data-feng-comment-endpoint，提交时由 xf-app 模块接管
+ *   - 表情栏结构：.feng-emoji-bar[data-feng-emojis] > .feng-emoji-options > button[data-feng-emoji]
+ */
+import { icon } from '../lib/icons';
+import { THEME } from '../lib/theme';
+import { relativeTime } from '../lib/content';
+import type { Comment } from '../lib/data';
+
+interface Props {
+  postId: string;
+  comments: Comment[];
+  /** 留言板页面用 */
+  guestbook?: boolean;
+}
+
+const { postId, comments, guestbook = false } = Astro.props;
+
+/** 完整时间，用在评论时间气泡的提示文本上。 */
+const fullDate = (iso: string) => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.valueOf())) return iso;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+
+const EMOJIS: Record<string, string> = {
+  '😀': '开心', '😁': '笑脸', '😂': '笑哭', '😃': '开怀', '😄': '高兴', '😅': '汗颜',
+  '😆': '大笑', '😇': '天使', '😈': '调皮', '😉': '眨眼', '😊': '微笑', '😋': '美味',
+  '😌': '满足', '😍': '喜欢', '😎': '酷', '😏': '得意', '😐': '平静', '😑': '无语',
+  '😒': '不悦', '😓': '紧张', '😔': '低落', '😕': '困惑', '😖': '纠结', '😘': '飞吻',
+  '😗': '亲亲', '😙': '轻吻', '😚': '害羞', '😛': '吐舌', '😜': '俏皮', '😝': '鬼脸',
+  '😞': '失落', '😟': '担心', '😠': '生气', '😡': '愤怒', '😢': '流泪', '😣': '坚持',
+  '😤': '不服气', '😥': '难过', '😮': '惊讶', '😯': '意外', '😰': '焦虑', '😩': '疲惫',
+  '😪': '困倦', '😫': '抓狂', '😬': '尴尬', '😭': '大哭', '😲': '震惊', '😳': '脸红',
+  '😨': '害怕', '😱': '惊吓', '😵': '晕眩', '😴': '睡觉', '😶': '沉默', '😷': '口罩',
+  '😺': '开心猫', '😸': '笑脸猫', '😹': '笑哭猫', '😻': '心动猫', '😼': '得意猫',
+  '😽': '亲亲猫', '🙀': '惊讶猫', '😿': '哭泣猫', '😾': '生气猫', '🙈': '不看',
+  '🙉': '不听', '🙊': '不说', '🙋': '举手', '🙌': '欢呼', '🙏': '感谢', '👋': '挥手',
+  '👍': '赞', '👏': '鼓掌', '🤝': '握手', '✌️': '胜利', '🤔': '思考', '🥹': '感动',
+  '🥳': '庆祝', '❤️': '爱心', '🎉': '礼花', '☕': '咖啡',
+};
+---
+
+<section id="comments" class="xf-comments feng-comments" aria-label="评论区" data-xf-reveal>
+  <div class="feng-group-title">
+    <h2 set:html={`${icon('comment')}${comments.length.toLocaleString('zh-CN')} 条评论`} />
+  </div>
+
+  {
+    comments.length > 0 ? (
+      <ol class="xf-comment-list feng-comment-list">
+        {comments.map((comment, index) => (
+          /*
+            结构对齐原主题 inc-comment.php 的 feng_comment()：
+            .feng-comment[id^="comment-"] 是 feng-comment-profile 模块的自助编辑入口，
+            [data-comment-geo] > [data-geo-label] 是地理位置的懒加载钩子。
+          */
+          <li class="feng-comment" id={`comment-${comment.id}`}>
+            <article id={`div-comment-${comment.id}`} class="feng-comment__body">
+              <div class="feng-comment__avatar">
+                <span class="feng-avatar-initial" aria-hidden="true">{comment.author.slice(0, 1)}</span>
+              </div>
+              <div class="feng-comment__main">
+                <header class="feng-comment__heading">
+                  <div class="feng-comment__identity">
+                    <b>{comment.author}</b>
+                    <time
+                      class="feng-comment__date feng-comment-tip"
+                      tabindex="0"
+                      data-comment-tip={`评论时间：${fullDate(comment.date)}`}
+                      datetime={comment.date}
+                    >
+                      {relativeTime(comment.date)}
+                    </time>
+                    <span class="feng-comment__client feng-comment-location" data-comment-geo={comment.id}>
+                      <span data-geo-label>所在地加载中</span>
+                    </span>
+                  </div>
+                  <div class="feng-comment__controls">
+                    <a class="feng-comment__number" href={`#comment-${comment.id}`}>#{index + 1}</a>
+                    <div class="feng-comment__actions" />
+                  </div>
+                </header>
+                <div class="feng-comment__text">
+                  <p>{comment.content}</p>
+                  {comment.reply && (
+                    <div class="feng-comment-reply">
+                      <strong>作者回复：</strong>
+                      {comment.reply}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </article>
+          </li>
+        ))}
+      </ol>
+    ) : (
+      <p class="feng-empty">还没有留言，来写下第一句吧。</p>
+    )
+  }
+
+  <form
+    id="commentform"
+    class="comment-form feng-comment-form"
+    method="post"
+    action="/api/ajax"
+    data-post-id={postId}
+    data-guestbook={guestbook ? 'true' : undefined}
+  >
+    {/*
+      端点必须放在表单内部的隐藏域上：
+      前端 app.js 用 `commentForm.querySelector('[data-feng-comment-endpoint]')` 取值，
+      查的是表单的后代元素，挂在表单自身上会取不到（原生提交就会生效，JS 不接管）。
+    */}
+    <input type="hidden" name="action" value="feng_comment" />
+    <input type="hidden" name="feng_comment_nonce" value="shanying" data-feng-comment-endpoint="/api/ajax" />
+    <input type="hidden" name="post_id" value={postId} />
+
+    <h3 class="feng-comment-title">
+      <span class="feng-comment-title-icon" aria-hidden="true" set:html={icon('comment')} />
+      {guestbook ? '留一句话吧' : '来几句走心的评论吧'}
+      {/*
+        切换资料：前端 comment-profile.js 会把 #author/#email/#url 的值
+        暂存下来，点击后在「使用已存资料」和「切换资料」之间来回切换。
+      */}
+      <span class="feng-form-identity">
+        <span>留个名字，方便回复</span>
+        <button type="button" data-feng-switch-profile aria-expanded="false">切换资料</button>
+      </span>
+    </h3>
+
+    <p class="comment-form-author">
+      <span class="feng-field-icon" set:html={icon('person')} />
+      <label class="screen-reader-text" for="author">昵称 *</label>
+      <input
+        id="author"
+        name="author"
+        type="text"
+        autocomplete="name"
+        maxlength="245"
+        placeholder="名称 *"
+        required
+        aria-required="true"
+      />
+    </p>
+
+    <p class="comment-form-email">
+      <span class="feng-field-icon" set:html={icon('email')} />
+      <label class="screen-reader-text" for="email">邮箱 *</label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        maxlength="100"
+        placeholder="邮箱 *"
+        required
+        aria-required="true"
+      />
+    </p>
+
+    <p class="comment-form-url">
+      <span class="feng-field-icon" set:html={icon('link')} />
+      <label class="screen-reader-text" for="url">网站（选填）</label>
+      <input
+        id="url"
+        name="url"
+        type="url"
+        autocomplete="url"
+        maxlength="200"
+        placeholder="博客链接（选填）"
+      />
+    </p>
+
+    <div class="comment-form-comment">
+      <label class="screen-reader-text" for="comment">你的留言 *</label>
+      <textarea
+        id="comment"
+        name="comment"
+        rows="7"
+        required
+        aria-required="true"
+        placeholder={THEME.comment_placeholder}
+      />
+      <div class="feng-emoji-bar wp-exclude-emoji" data-feng-emojis hidden>
+        <div class="feng-emoji-options">
+          {Object.entries(EMOJIS).map(([emoji, label]) => (
+            <button type="button" data-feng-emoji={emoji} aria-label={`插入表情：${label}`} title={label}>
+              {emoji}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          class="feng-emoji-more"
+          data-feng-emoji-more
+          aria-label="展开更多表情"
+          aria-expanded="false"
+          set:html={icon('plus')}
+        />
+      </div>
+    </div>
+
+    <p class="feng-form-status" role="status" aria-live="polite" data-feng-comment-status></p>
+
+    <button
+      class="submit feng-submit"
+      type="submit"
+      name="comment"
+      id="submit"
+      aria-label="提交评论"
+    >
+      <Fragment set:html={icon('comment')} /><span class="feng-submit-label" aria-hidden="true">提交评论</span>
+    </button>
+  </form>
+</section>

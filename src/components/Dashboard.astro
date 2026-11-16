@@ -1,0 +1,26 @@
+---
+/**
+ * 站点控制面板外壳。移植自 header.php 中的 #feng-dashboard 区块。
+ *
+ * 内容由 feng-dashboard 模块通过 ?action=feng_dashboard 异步载入，
+ * 因此这里只输出静态骨架 + data-endpoint。
+ */
+---
+
+<section
+  id="feng-dashboard"
+  class="feng-dashboard"
+  hidden
+  aria-labelledby="feng-dashboard-title"
+  data-endpoint="/api/ajax"
+>
+  <div class="feng-dashboard-head">
+    <div>
+      <p class="feng-dashboard-kicker">POLAR / EXPLORE</p>
+      <h1 id="feng-dashboard-title" tabindex="-1">站点控制面板</h1>
+      <p>文章、说说、分类与近况，都在这里。</p>
+    </div>
+    <div data-dashboard-summary-slot></div>
+  </div>
+  <div data-feng-dashboard-content aria-live="polite"></div>
+</section>

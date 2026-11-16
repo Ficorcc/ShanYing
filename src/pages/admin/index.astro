@@ -1,0 +1,534 @@
+---
+/**
+ * 站点管理页。
+ *
+ * 替代原 WordPress 主题的后台设置面板：集中管理说说、评论与站点信息。
+ * 界面沿用山映主题的配色变量，因此会跟随深浅配色。
+ *
+ * 安全：设置环境变量 `SHANYING_ADMIN_TOKEN` 后，页面会要求先输入令牌，
+ * 之后所有写操作都会带上该令牌。
+ */
+export const prerender = false;
+
+import { SITE } from '../../config/site';
+
+const tokenEnabled = Boolean(process.env.SHYANYING_ADMIN_TOKEN);
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>站点管理 · {SITE.title}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <style is:inline>
+      .feng-admin {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+        font-family: var(--xf-font);
+        color: var(--xf-text);
+      }
+      .feng-admin__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--xf-line);
+      }
+      .feng-admin__head h1 {
+        font-size: 24px;
+        margin: 0;
+      }
+      .feng-admin__kicker {
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        color: var(--xf-muted);
+        margin: 0 0 6px;
+      }
+      .feng-admin__tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin: 24px 0;
+      }
+      .feng-admin__tabs button {
+        border: 1px solid var(--xf-line);
+        background: transparent;
+        color: inherit;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .feng-admin__tabs button[aria-selected='true'] {
+        background: var(--xf-accent);
+        color: var(--xf-accent-text);
+        border-color: transparent;
+      }
+      .feng-admin__panel[hidden] {
+        display: none;
+      }
+      .feng-admin__stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 28px;
+      }
+      .feng-admin__stat {
+        border: 1px solid var(--xf-line);
+        border-radius: 18px;
+        padding: 16px 18px;
+        background: var(--xf-surface);
+      }
+      .feng-admin__stat strong {
+        display: block;
+        font-size: 24px;
+        font-variant-numeric: tabular-nums;
+      }
+      .feng-admin__stat span {
+        font-size: 12px;
+        color: var(--xf-muted);
+      }
+      .feng-admin__card {
+        border: 1px solid var(--xf-line);
+        border-radius: 22px;
+        padding: 20px;
+        background: var(--xf-surface);
+        margin-bottom: 16px;
+      }
+      .feng-admin__card h2 {
+        font-size: 15px;
+        margin: 0 0 14px;
+      }
+      .feng-admin__row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-top: 1px solid var(--xf-line);
+      }
+      .feng-admin__row:first-of-type {
+        border-top: 0;
+      }
+      .feng-admin__row-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .feng-admin__row-body strong {
+        font-size: 13px;
+      }
+      .feng-admin__row-body p {
+        margin: 4px 0 0;
+        font-size: 13px;
+        color: var(--xf-muted);
+        overflow-wrap: anywhere;
+      }
+      .feng-admin__row-body time {
+        font-size: 11px;
+        color: var(--xf-muted);
+      }
+      .feng-admin__actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .feng-admin__actions button {
+        border: 1px solid var(--xf-line);
+        background: transparent;
+        color: inherit;
+        border-radius: 10px;
+        padding: 6px 12px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .feng-admin__actions button:hover {
+        border-color: var(--xf-accent);
+        color: var(--xf-accent);
+      }
+      .feng-admin__actions button[data-danger]:hover {
+        border-color: #e5484d;
+        color: #e5484d;
+      }
+      .feng-admin__form {
+        display: grid;
+        gap: 12px;
+      }
+      .feng-admin__form label {
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--xf-muted);
+      }
+      .feng-admin__form input,
+      .feng-admin__form textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--xf-line);
+        background: var(--xf-bg);
+        color: var(--xf-text);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font: inherit;
+        font-size: 14px;
+      }
+      .feng-admin__form textarea {
+        min-height: 96px;
+        resize: vertical;
+      }
+      .feng-admin__submit {
+        justify-self: start;
+        border: 0;
+        background: var(--xf-accent);
+        color: var(--xf-accent-text);
+        border-radius: 999px;
+        padding: 9px 22px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .feng-admin__status {
+        font-size: 13px;
+        color: var(--xf-muted);
+        min-height: 1.4em;
+        margin: 10px 0 0;
+      }
+      .feng-admin__gate {
+        max-width: 360px;
+        margin: 80px auto;
+        text-align: center;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="feng-admin">
+      <header class="feng-admin__head">
+        <div>
+          <p class="feng-admin__kicker">SHANYING · CONTROL</p>
+          <h1>站点管理</h1>
+        </div>
+        <a class="xf-icon-button" href="/" aria-label="返回站点">←</a>
+      </header>
+
+      {
+        tokenEnabled ? (
+          <section class="feng-admin__gate" data-gate>
+            <h2>需要管理令牌</h2>
+            <p class="feng-admin__status">该站点已开启令牌校验，请输入 SHANYING_ADMIN_TOKEN。</p>
+            <form class="feng-admin__form" data-gate-form>
+              <label>
+                管理令牌
+                <input type="password" name="token" autocomplete="current-password" required />
+              </label>
+              <button class="feng-admin__submit" type="submit">进入</button>
+            </form>
+          </section>
+        ) : (
+          <p class="feng-admin__status">
+            当前未设置 SHANYING_ADMIN_TOKEN，管理接口处于开放状态 —— 仅建议在本机开发时使用。
+          </p>
+        )
+      }
+
+      <div data-admin hidden>
+        <nav class="feng-admin__tabs" role="tablist">
+          <button type="button" role="tab" data-tab="overview" aria-selected="true">概览</button>
+          <button type="button" role="tab" data-tab="talks" aria-selected="false">说说</button>
+          <button type="button" role="tab" data-tab="comments" aria-selected="false">评论</button>
+          <button type="button" role="tab" data-tab="settings" aria-selected="false">站点信息</button>
+        </nav>
+
+        <section class="feng-admin__panel" data-panel="overview">
+          <div class="feng-admin__stats" data-stats></div>
+        </section>
+
+        <section class="feng-admin__panel" data-panel="talks" hidden>
+          <div class="feng-admin__card">
+            <h2>发布说说</h2>
+            <form class="feng-admin__form" data-talk-form>
+              <label>
+                正文
+                <textarea name="content" required maxlength="4000" placeholder="此刻，想说点什么？"></textarea>
+              </label>
+              <label>
+                关键词（逗号分隔，最多 4 个）
+                <input name="tags" maxlength="100" placeholder="生活，随想…" />
+              </label>
+              <button class="feng-admin__submit" type="submit">发布</button>
+            </form>
+            <p class="feng-admin__status" data-talk-status></p>
+          </div>
+          <div class="feng-admin__card">
+            <h2>已有说说</h2>
+            <div data-talk-list></div>
+          </div>
+        </section>
+
+        <section class="feng-admin__panel" data-panel="comments" hidden>
+          <div class="feng-admin__card">
+            <h2>评论</h2>
+            <div data-comment-list></div>
+          </div>
+        </section>
+
+        <section class="feng-admin__panel" data-panel="settings" hidden>
+          <div class="feng-admin__card">
+            <h2>站点信息</h2>
+            <form class="feng-admin__form" data-settings-form>
+              <label>站点名称<input name="title" /></label>
+              <label>副标题<input name="subtitle" /></label>
+              <label>站点描述<textarea name="description"></textarea></label>
+              <label>作者<input name="author" /></label>
+              <label>邮箱<input name="email" type="email" /></label>
+              <label>ICP 备案号<input name="icpNumber" /></label>
+              <label>公安备案号<input name="policeNumber" /></label>
+              <label>GitHub<input name="github" type="url" /></label>
+              <label>X / Twitter<input name="x" type="url" /></label>
+              <button class="feng-admin__submit" type="submit">保存</button>
+            </form>
+            <p class="feng-admin__status" data-settings-status></p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script is:inline define:vars={{ tokenEnabled }}>
+      (function () {
+        var root = document.querySelector('[data-admin]');
+        var gate = document.querySelector('[data-gate]');
+        var token = '';
+        try {
+          token = localStorage.getItem('shanying-admin-token') || '';
+        } catch (e) {}
+
+        function setStatus(selector, text, isError) {
+          var node = document.querySelector(selector);
+          if (!node) return;
+          node.textContent = text;
+          node.style.color = isError ? '#e5484d' : '';
+        }
+
+        function api(path, body) {
+          var url = '/api/admin' + (token ? '?token=' + encodeURIComponent(token) : '');
+          return fetch(url, {
+            method: body ? 'POST' : 'GET',
+            headers: { 'content-type': 'application/json' },
+            body: body ? JSON.stringify(Object.assign({ token: token }, body)) : undefined,
+          })
+            .then(function (response) {
+              return response.json().then(function (result) {
+                if (!result.success) throw new Error(result.data?.message || '操作失败');
+                return result.data;
+              });
+            });
+        }
+
+        function esc(value) {
+          return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char];
+          });
+        }
+
+        function renderStats(data) {
+          var stats = [
+            ['文章', data.overview.posts],
+            ['说说', data.overview.talks],
+            ['评论', data.overview.comments],
+            ['友链', data.overview.friends],
+            ['订阅源', data.overview.subscriptions],
+            ['总浏览', data.overview.pageViews],
+          ];
+          document.querySelector('[data-stats]').innerHTML = stats
+            .map(function (item) {
+              return '<div class="feng-admin__stat"><strong>' + Number(item[1]).toLocaleString('zh-CN') + '</strong><span>' + esc(item[0]) + '</span></div>';
+            })
+            .join('');
+        }
+
+        function renderTalks(talks) {
+          var list = document.querySelector('[data-talk-list]');
+          if (!talks.length) {
+            list.innerHTML = '<p class="feng-admin__status">还没有运行期发布的说说。</p>';
+            return;
+          }
+          list.innerHTML = talks
+            .map(function (talk) {
+              return (
+                '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
+                esc(talk.content) +
+                '</strong><p><time>' +
+                esc(new Date(talk.createdAt).toLocaleString('zh-CN')) +
+                '</time></p></div><div class="feng-admin__actions"><button type="button" data-talk-delete="' +
+                esc(talk.id) +
+                '" data-danger>删除</button></div></div>'
+              );
+            })
+            .join('');
+        }
+
+        function renderComments(comments) {
+          var list = document.querySelector('[data-comment-list]');
+          if (!comments.length) {
+            list.innerHTML = '<p class="feng-admin__status">还没有评论。</p>';
+            return;
+          }
+          list.innerHTML = comments
+            .map(function (comment) {
+              return (
+                '<div class="feng-admin__row"><div class="feng-admin__row-body"><strong>' +
+                esc(comment.author) +
+                ' · ' +
+                esc(comment.postId) +
+                '</strong><p>' +
+                esc(comment.content) +
+                '</p><time>' +
+                esc(new Date(comment.date).toLocaleString('zh-CN')) +
+                '</time></div><div class="feng-admin__actions"><button type="button" data-comment-approve="' +
+                esc(comment.id) +
+                '" data-approved="' +
+                (comment.approved ? '1' : '0') +
+                '">' +
+                (comment.approved ? '转为待审' : '通过') +
+                '</button><button type="button" data-comment-delete="' +
+                esc(comment.id) +
+                '" data-danger>删除</button></div></div>'
+              );
+            })
+            .join('');
+        }
+
+        function renderSettings(settings) {
+          var form = document.querySelector('[data-settings-form]');
+          Object.keys(settings).forEach(function (key) {
+            var field = form.elements[key];
+            if (field && !field.value) field.value = settings[key] || '';
+          });
+        }
+
+        function refresh() {
+          return api('/api/admin')
+            .then(function (data) {
+              renderStats(data);
+              renderTalks(data.talks);
+              renderComments(data.comments);
+              renderSettings(data.settings);
+            })
+            .catch(function (error) {
+              setStatus('[data-talk-status]', error.message, true);
+            });
+        }
+
+        function show() {
+          if (gate) gate.hidden = true;
+          root.hidden = false;
+          refresh();
+        }
+
+        if (!tokenEnabled) {
+          show();
+        } else if (token) {
+          show();
+        } else {
+          var gateForm = document.querySelector('[data-gate-form]');
+          gateForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            token = gateForm.elements.token.value.trim();
+            try {
+              localStorage.setItem('shanying-admin-token', token);
+            } catch (e) {}
+            api('/api/admin')
+              .then(show)
+              .catch(function (error) {
+                setStatus('[data-gate] .feng-admin__status', error.message, true);
+              });
+          });
+        }
+
+        document.querySelectorAll('[data-tab]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            document.querySelectorAll('[data-tab]').forEach(function (item) {
+              item.setAttribute('aria-selected', String(item === button));
+            });
+            document.querySelectorAll('[data-panel]').forEach(function (panel) {
+              panel.hidden = panel.dataset.panel !== button.dataset.tab;
+            });
+          });
+        });
+
+        document.addEventListener('click', function (event) {
+          var target = event.target;
+          if (!(target instanceof Element)) return;
+          var talkDelete = target.closest('[data-talk-delete]');
+          if (talkDelete) {
+            api('/api/admin', { action: 'talk.delete', id: talkDelete.dataset.talkDelete })
+              .then(function () {
+                setStatus('[data-talk-status]', '已删除。');
+                refresh();
+              })
+              .catch(function (error) {
+                setStatus('[data-talk-status]', error.message, true);
+              });
+            return;
+          }
+          var approve = target.closest('[data-comment-approve]');
+          if (approve) {
+            var next = approve.dataset.approved === '1' ? '0' : '1';
+            api('/api/admin', { action: 'comment.approve', id: approve.dataset.commentApprove, approved: next })
+              .then(refresh)
+              .catch(function (error) {
+                setStatus('[data-talk-status]', error.message, true);
+              });
+            return;
+          }
+          var commentDelete = target.closest('[data-comment-delete]');
+          if (commentDelete) {
+            api('/api/admin', { action: 'comment.delete', id: commentDelete.dataset.commentDelete })
+              .then(refresh)
+              .catch(function (error) {
+                setStatus('[data-talk-status]', error.message, true);
+              });
+          }
+        });
+
+        var talkForm = document.querySelector('[data-talk-form]');
+        talkForm.addEventListener('submit', function (event) {
+          event.preventDefault();
+          api('/api/admin', {
+            action: 'talk.save',
+            content: talkForm.elements.content.value,
+            tags: talkForm.elements.tags.value,
+          })
+            .then(function (data) {
+              talkForm.reset();
+              setStatus('[data-talk-status]', data.message);
+              refresh();
+            })
+            .catch(function (error) {
+              setStatus('[data-talk-status]', error.message, true);
+            });
+        });
+
+        var settingsForm = document.querySelector('[data-settings-form]');
+        settingsForm.addEventListener('submit', function (event) {
+          event.preventDefault();
+          var payload = { action: 'settings.save' };
+          new FormData(settingsForm).forEach(function (value, key) {
+            payload[key] = value;
+          });
+          api('/api/admin', payload)
+            .then(function (data) {
+              setStatus('[data-settings-status]', data.message);
+            })
+            .catch(function (error) {
+              setStatus('[data-settings-status]', error.message, true);
+            });
+        });
+      })();
+    </script>
+  </body>
+</html>

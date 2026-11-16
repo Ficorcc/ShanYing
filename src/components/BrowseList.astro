@@ -1,0 +1,118 @@
+---
+/**
+ * 搜索 / 分类 / 标签 共用的浏览面。移植自 template-parts/browse.php。
+ */
+import DeferredImage from './DeferredImage.astro';
+import SearchForm from './SearchForm.astro';
+import type { PostMeta } from '../lib/content';
+
+interface Props {
+  title: string;
+  posts: PostMeta[];
+  /** 'search' | 'category' | 'tag' */
+  mode: 'search' | 'category' | 'tag';
+  description?: string;
+  query?: string;
+  /** 分类页顶部会列出全部分类 */
+  categories?: { name: string; count: number }[];
+  activeCategory?: string;
+  emptyTitle?: string;
+  emptyText?: string;
+}
+
+const {
+  title,
+  posts,
+  mode,
+  description = '',
+  query = '',
+  categories = [],
+  activeCategory = '',
+  emptyTitle,
+  emptyText,
+} = Astro.props;
+
+const eyebrow =
+  mode === 'search' ? 'SEARCH / 搜索' : mode === 'tag' ? 'TOPIC / 关键词' : 'COLLECTION / 分类浏览';
+const iconName = mode === 'search' ? 'fa-magnifying-glass' : mode === 'tag' ? 'fa-hashtag' : 'fa-folder-open';
+const countLabel = mode === 'search' ? '找到' : '共';
+const orderLabel = mode === 'search' ? '按相关度排列' : '按发布时间排列';
+const defaultEmptyTitle = mode === 'search' ? '没有找到相关内容' : '这里还没有文章';
+const defaultEmptyText = mode === 'search' ? '试试更短的关键词，或换个说法。' : '新的记录，正在路上。';
+---
+
+<section class="feng-browse">
+  <header class="feng-browse-head">
+    <div>
+      <p class="feng-browse-eyebrow">{eyebrow}</p>
+      <h1>
+        <i class={`fa-solid ${iconName}`} aria-hidden="true"></i>
+        {title}
+      </h1>
+      {description && <div class="feng-browse-description">{description}</div>}
+    </div>
+    <div class="feng-browse-search">
+      <SearchForm value={query} id="feng-browse-search" />
+    </div>
+  </header>
+
+  {
+    mode === 'category' && categories.length > 0 && (
+      <nav class="feng-browse-topics" aria-label="文章分类">
+        {categories.map((category) => (
+          <a
+            href={`/essay/category/${encodeURIComponent(category.name)}/`}
+            aria-current={category.name === activeCategory ? 'page' : undefined}
+          >
+            {category.name}
+            <sup>{category.count}</sup>
+          </a>
+        ))}
+      </nav>
+    )
+  }
+
+  <div class="feng-browse-count">
+    <span>
+      {countLabel} <strong>{posts.length.toLocaleString('zh-CN')}</strong> 篇内容
+    </span>
+    <span>{orderLabel}</span>
+  </div>
+
+  {
+    posts.length > 0 ? (
+      <div class="feng-browse-results">
+        {posts.map((post) => (
+          <article class="feng-browse-row">
+            <div class="feng-browse-copy">
+              <div class="feng-browse-meta">
+                <time datetime={post.iso}>
+                  {post.date.getFullYear()}.
+                  {String(post.date.getMonth() + 1).padStart(2, '0')}.
+                  {String(post.date.getDate()).padStart(2, '0')}
+                </time>
+                {post.category && <span>{post.category}</span>}
+              </div>
+              <h2>
+                <a href={post.url}>{post.title}</a>
+              </h2>
+              <p>{post.excerpt}</p>
+            </div>
+            {post.cover && (
+              <a class="feng-browse-image" href={post.url} tabindex="-1" aria-hidden="true">
+                <DeferredImage src={post.cover} alt="" />
+              </a>
+            )}
+          </article>
+        ))}
+      </div>
+    ) : (
+      <div class="feng-browse-empty">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <h2>{emptyTitle ?? defaultEmptyTitle}</h2>
+        <p>{emptyText ?? defaultEmptyText}</p>
+        <a href="/">返回首页</a>
+      </div>
+    )
+  }
+</section>

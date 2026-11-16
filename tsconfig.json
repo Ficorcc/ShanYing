@@ -1,0 +1,6 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  // public/ 下是山映主题的构建产物（第三方 JS），不参与类型检查
+  "exclude": ["dist", "public", "var"]
+}

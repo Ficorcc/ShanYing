@@ -1,0 +1,21 @@
+---
+/**
+ * 标签页。
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BrowseList from '../../components/BrowseList.astro';
+import { getPublishedMeta, tagList } from '../../lib/content';
+
+export async function getStaticPaths() {
+  const posts = await getPublishedMeta();
+  return tagList(posts).map((tag) => ({ params: { tag: tag.name }, props: { tag } }));
+}
+
+const { tag } = Astro.props;
+const posts = await getPublishedMeta();
+const items = posts.filter((post) => post.tags.includes(tag.name));
+---
+
+<BaseLayout title={`#${tag.name}`} description={`带有「${tag.name}」标签的文章。`}>
+  <BrowseList title={tag.name} posts={items} mode="tag" description={`带有「${tag.name}」标签的记录。`} />
+</BaseLayout>

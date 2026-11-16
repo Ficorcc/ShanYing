@@ -1,0 +1,147 @@
+---
+/**
+ * 站点页脚。移植自 footer.php。
+ *
+ * 关键契约：访客统计由 feng-visitor-stats 模块写入
+ * [data-footer-views] / [data-footer-online] / [data-footer-location]。
+ */
+import { SITE } from '../config/site';
+import { THEME, socialLinks } from '../lib/theme';
+import { SOCIAL_ICONS } from '../lib/icons';
+
+const year = new Date().getFullYear();
+const social = socialLinks();
+
+const policeCode = THEME.police_number.replace(/[^0-9]/g, '');
+const policeUrl = policeCode
+  ? `http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=${policeCode}`
+  : '';
+
+const registrations = [
+  { number: THEME.icp_number, url: 'http://beian.miit.gov.cn/', icon: 'icp' },
+  { number: THEME.police_number, url: policeUrl, icon: 'beian' },
+].filter((item) => item.number);
+---
+
+<footer class="xf-footer polar-footer">
+  <div class="polar-footer__inner">
+    <div class="polar-footer__main">
+      <div class="feng-footer-copyright-group">
+        <span class="feng-footer-copyright">© {year}</span>
+        <a class="xf-footer__name" href="/">{SITE.title}</a>
+        <span class="feng-footer-rights">版权所有</span>
+      </div>
+
+      {
+        THEME.footer_stats && (
+          <div class="feng-footer-statistics">
+            <div class="feng-footer-stats" data-footer-stats>
+              <span title="全站页面浏览次数">
+                <i class="fa-solid fa-eye" aria-hidden="true" />
+                总浏览量 <b data-footer-views>—</b>
+              </span>
+              <span title="最近 5 分钟活跃的浏览器数量，多标签页合并估算">
+                <i class="feng-online-dot" aria-hidden="true" />
+                <b data-footer-online>—</b> 人在线
+              </span>
+              <span>
+                <i class="fa-solid fa-location-dot" aria-hidden="true" />
+                最近访客来自 <span data-footer-location>—</span>
+              </span>
+            </div>
+          </div>
+        )
+      }
+    </div>
+
+    {
+      social.length > 0 && (
+        <nav class="feng-social polar-footer__social" aria-label="社交与订阅">
+          {social.map((item) => (
+            <a
+              href={item.url}
+              aria-label={item.label}
+              title={item.label}
+              target={item.key === 'rss' || item.key === 'email' ? undefined : '_blank'}
+              rel={item.key === 'rss' || item.key === 'email' ? undefined : 'me noopener noreferrer'}
+            >
+              <i class={`feng-icon feng-fa ${SOCIAL_ICONS[item.key]}`} aria-hidden="true" />
+            </a>
+          ))}
+        </nav>
+      )
+    }
+
+    {
+      registrations.length > 0 && (
+        <div class="polar-footer__legal">
+          <svg
+            width="0"
+            height="0"
+            aria-hidden="true"
+            focusable="false"
+            style="position:absolute;overflow:hidden"
+          >
+            <defs>
+              <filter id="feng-registration-transparent" color-interpolation-filters="sRGB">
+                <feColorMatrix
+                  type="matrix"
+                  values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -10 -10 -10 0 30"
+                />
+                <feComposite in2="SourceGraphic" operator="in" />
+              </filter>
+            </defs>
+          </svg>
+          <div class="feng-footer-legal">
+            {registrations.map((registration) => (
+              <Fragment>
+                {registration.url ? (
+                  <a
+                    class="feng-registration"
+                    href={registration.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <picture class="feng-registration__badge" data-registration-icon={registration.icon}>
+                      <source
+                        srcset={`/assets/images/${registration.icon}.avif`}
+                        type="image/avif"
+                      />
+                      <img
+                        src={`/assets/images/${registration.icon}.webp`}
+                        width="22"
+                        height="22"
+                        alt=""
+                        decoding="async"
+                        loading="lazy"
+                      />
+                    </picture>
+                    <span>{registration.number}</span>
+                  </a>
+                ) : (
+                  <span class="feng-registration" tabindex="0">
+                    <picture class="feng-registration__badge" data-registration-icon={registration.icon}>
+                      <source
+                        srcset={`/assets/images/${registration.icon}.avif`}
+                        type="image/avif"
+                      />
+                      <img
+                        src={`/assets/images/${registration.icon}.webp`}
+                        width="22"
+                        height="22"
+                        alt=""
+                        decoding="async"
+                        loading="lazy"
+                      />
+                    </picture>
+                    <span>{registration.number}</span>
+                  </span>
+                )}
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      )
+    }
+  </div>
+</footer>

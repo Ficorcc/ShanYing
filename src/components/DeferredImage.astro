@@ -1,0 +1,40 @@
+---
+/**
+ * 延迟加载图片。移植自 inc/inc-media.php 的 feng_deferred_image()。
+ *
+ * 契约：外层 span 带 data-xf-lazy-image，内部需要 <template>，
+ * 由 xf-app 模块在进入视口时取出模板内容渲染。
+ */
+interface Props {
+  src: string;
+  alt?: string;
+  loading?: 'eager' | 'lazy';
+  decoding?: 'async' | 'sync' | 'auto';
+  fetchpriority?: 'high' | 'low' | 'auto';
+  class?: string;
+  width?: number;
+  height?: number;
+}
+
+const {
+  src,
+  alt = '',
+  loading = 'lazy',
+  decoding = 'async',
+  fetchpriority,
+  class: className,
+  width,
+  height,
+} = Astro.props;
+
+const markup = `<img src="${src}" alt="${alt}" loading="${loading}" decoding="${decoding}"${
+  fetchpriority ? ` fetchpriority="${fetchpriority}"` : ''
+}${width ? ` width="${width}"` : ''}${height ? ` height="${height}"` : ''}${
+  className ? ` class="${className}"` : ''
+}>`;
+---
+
+<span class="xf-deferred-media" data-xf-lazy-image>
+  <template set:html={markup} />
+  <noscript set:html={markup} />
+</span>

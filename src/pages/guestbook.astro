@@ -1,0 +1,30 @@
+---
+/**
+ * 留言页。移植自 pages/guestbook.php。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Comments from '../components/Comments.astro';
+import { icon } from '../lib/icons';
+import { loadGuestbookComments } from '../lib/comments';
+
+/** 留言有运行期新增，这一页按请求渲染。 */
+export const prerender = false;
+
+const guestbookComments = await loadGuestbookComments();
+---
+
+<BaseLayout kind="page" title="留言" description="路过也好，常来也好。留下一句话，让我知道你来过。">
+  <div class="feng-panel feng-special-page">
+    <header class="feng-page-heading feng-unified-heading">
+      <h1>
+        <i class="fa-solid fa-comments feng-page-title-icon" aria-hidden="true"></i>
+        留言
+      </h1>
+    </header>
+    <p class="feng-page-introduction">路过也好，常来也好。留下一句话，让我知道你来过。</p>
+    <div class="xf-prose feng-page-prose">
+      <p>这里是全站留言本。写点什么都好，不必拘谨 —— 只是别忘了带上你的邮箱，方便我回复。</p>
+    </div>
+    <Comments postId="guestbook" comments={guestbookComments} guestbook />
+  </div>
+</BaseLayout>

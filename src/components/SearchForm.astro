@@ -1,0 +1,31 @@
+---
+/**
+ * 站内搜索表单。
+ *
+ * 契约：input 的 name 必须是 `s`（xf-app 与 feng-music 都按这个选择器取值），
+ * 提交到 `/` 由首页读取 ?s= 渲染搜索结果。
+ */
+interface Props {
+  value?: string;
+  label?: string;
+  placeholder?: string;
+  id?: string;
+  class?: string;
+}
+
+const {
+  value = '',
+  label = '搜索文章',
+  placeholder = '搜索文章…',
+  id = 'xf-search',
+  class: className = '',
+} = Astro.props;
+---
+
+<form class={`xf-search ${className}`} role="search" method="get" action="/">
+  <label class="screen-reader-text" for={id}>{label}</label>
+  <input id={id} type="search" name="s" value={value} placeholder={placeholder} autocomplete="off" />
+  <button type="submit" aria-label="提交搜索">
+    <i class="feng-icon feng-fa fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+  </button>
+</form>

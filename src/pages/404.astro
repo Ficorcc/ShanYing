@@ -1,0 +1,23 @@
+---
+/**
+ * 404 页。移植自 404.php。
+ *
+ * 这一页走服务端渲染（prerender = false），原因是文章详情页在 slug 找不到时
+ * 会 `Astro.rewrite('/404')`。预渲染路由在服务端清单里没有组件实例，
+ * rewrite 会抛 "Unable to find a component instance for route /404"（500）。
+ * 改成 SSR 后 rewrite 才有落点，未知路径也由 Node 适配器统一走这条路由。
+ */
+export const prerender = false;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SearchForm from '../components/SearchForm.astro';
+---
+
+<BaseLayout title="没有找到这个页面" description="可以搜索文章，或返回首页继续浏览。" noindex>
+  <section class="xf-reading">
+    <h1>没有找到这个页面</h1>
+    <p>可以搜索文章，或返回首页继续浏览。</p>
+    <SearchForm id="feng-404-search" />
+    <p><a href="/">返回首页</a></p>
+  </section>
+</BaseLayout>

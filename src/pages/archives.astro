@@ -1,0 +1,154 @@
+---
+/**
+ * 文章存档页。移植自 pages/archives.php。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { icon } from '../lib/icons';
+import { activityCalendar } from '../lib/calendar';
+import {
+  getPublishedMeta,
+  categoryList,
+  tagList,
+  activityCounts,
+  siteWordCount,
+} from '../lib/content';
+
+const posts = await getPublishedMeta();
+const categories = categoryList(posts);
+const tags = tagList(posts);
+const counts = activityCounts(posts);
+const words = siteWordCount(posts);
+const views = posts.reduce((sum, post) => sum + post.views, 0);
+
+// 按年 → 月 → 文章 分组
+const byYear = new Map<number, Map<number, typeof posts>>();
+for (const post of posts) {
+  const year = post.date.getFullYear();
+  const month = post.date.getMonth() + 1;
+  const months = byYear.get(year) ?? new Map();
+  const items = months.get(month) ?? [];
+  items.push(post);
+  months.set(month, items);
+  byYear.set(year, months);
+}
+const years = [...byYear.entries()].sort((a, b) => b[0] - a[0]);
+
+const pad = (value: number) => String(value).padStart(2, '0');
+---
+
+<BaseLayout title="文章存档" description="按年份与月份整理的全部文章。">
+  <div class="feng-panel feng-special-page feng-archive-index">
+    <header class="feng-archive-index-heading feng-unified-heading">
+      <h1>
+        <span class="feng-archive-title-icon"><i class="fa-solid fa-box-archive" aria-hidden="true"></i></span>
+        文章存档
+      </h1>
+      <div class="feng-archive-index-stats">
+        <span><b>{posts.length}</b> 篇文章</span>
+        <span><b>{categories.length}</b> 个分类</span>
+        <span><b>{words.toLocaleString('zh-CN')}</b> 字</span>
+        <span><b>{views.toLocaleString('zh-CN')}</b> 次浏览</span>
+      </div>
+    </header>
+
+    <div class="feng-archive-index-content">
+      <div class="feng-archive-index-heatmap" set:html={activityCalendar({ counts })} />
+
+      <section class="feng-archive-category-section">
+        <header class="feng-archive-section-heading">
+          <h2><i class="fa-solid fa-folder-tree" aria-hidden="true"></i> 分类</h2>
+          <span>{categories.length} 个</span>
+        </header>
+        <div class="feng-archive-category-grid">
+          {
+            categories.map((category) => (
+              <article class="feng-archive-category">
+                <header>
+                  <a href={`/essay/category/${encodeURIComponent(category.name)}/`}>
+                    <span class="feng-archive-category-icon" set:html={icon('folder')} />
+                    {category.name}
+                  </a>
+                  <span>{category.count} 篇</span>
+                </header>
+                <span class="feng-archive-category-watermark" aria-hidden="true" set:html={icon('folder')} />
+                <p>关于{category.name}的记录与分享。</p>
+                {category.posts[0] && (
+                  <a class="feng-archive-category-latest" href={category.posts[0].url}>
+                    <span>{category.posts[0].title}</span>
+                    <time datetime={category.posts[0].iso}>
+                      {category.posts[0].date.getFullYear()}.{pad(category.posts[0].date.getMonth() + 1)}.{pad(
+                        category.posts[0].date.getDate(),
+                      )}
+                    </time>
+                  </a>
+                )}
+              </article>
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="feng-archive-tag-section">
+        <header class="feng-archive-section-heading">
+          <h2><i class="fa-solid fa-tags" aria-hidden="true"></i> 标签</h2>
+          <span>{tags.length} 个</span>
+        </header>
+        <div class="feng-archive-tag-list">
+          {
+            tags.map((tag) => (
+              <a href={`/tags/${encodeURIComponent(tag.name)}/`}>
+                {tag.name} <sup>{tag.count}</sup>
+              </a>
+            ))
+          }
+        </div>
+      </section>
+
+      {
+        years.map(([year, months]) => (
+          <section class="feng-archive-year" id={`archive-year-${year}`}>
+            <header>
+              <h2>{year}</h2>
+              <span>
+                {[...months.values()].reduce((sum, items) => sum + items.length, 0)} 篇
+              </span>
+            </header>
+            {[...months.entries()]
+              .sort((a, b) => b[0] - a[0])
+              .map(([month, items]) => (
+                <section class="feng-archive-month">
+                  <header>
+                    <h3>{month}月</h3>
+                    <span>{items.length} 篇</span>
+                  </header>
+                  <ol>
+                    {items.map((post) => (
+                      <li>
+                        <time datetime={post.iso}>
+                          {pad(post.date.getMonth() + 1)}/{pad(post.date.getDate())}
+                        </time>
+                        <a class="feng-archive-post" href={post.url}>
+                          <span class="feng-archive-category-icon" aria-hidden="true" set:html={icon('words')} />
+                          <span>{post.title}</span>
+                        </a>
+                        <span class="feng-archive-post-stats">
+                          <span aria-label={`${post.commentCount} 条评论`}>
+                            <i class="fa-regular fa-comment" aria-hidden="true" /> {post.commentCount}
+                          </span>
+                          <span aria-label={`${post.views} 次浏览`}>
+                            <i class="fa-regular fa-eye" aria-hidden="true" /> {post.views.toLocaleString('zh-CN')}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
+          </section>
+        ))
+      }
+
+      {posts.length === 0 && <p class="feng-empty">还没有公开的文章。</p>}
+    </div>
+  </div>
+</BaseLayout>

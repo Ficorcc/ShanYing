@@ -1,0 +1,112 @@
+---
+/**
+ * 关于页。移植自 pages/about.php。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { icon } from '../lib/icons';
+import { SITE } from '../config/site';
+import { THEME, socialLinks } from '../lib/theme';
+import { SOCIAL_ICONS } from '../lib/icons';
+import { siteInfo } from '../lib/data';
+
+const name = THEME.profile_name || SITE.author;
+const avatar = THEME.profile_avatar || '/assets/images/brand/polar-icon.png';
+const social = socialLinks();
+---
+
+<BaseLayout kind="page" title="关于" description={`关于 ${SITE.title} 与作者 ${name}。`}>
+  <div class="feng-panel feng-special-page feng-about-page">
+    <header class="feng-page-heading feng-unified-heading">
+      <h1>
+        <span class="feng-page-title-icon" set:html={icon('person')} />
+        关于
+      </h1>
+      {
+        social.length > 0 && (
+          <nav class="feng-social" aria-label="社交与订阅">
+            {social.map((item) => (
+              <a
+                href={item.url}
+                aria-label={item.label}
+                title={item.label}
+                target={item.key === 'rss' || item.key === 'email' ? undefined : '_blank'}
+                rel={item.key === 'rss' || item.key === 'email' ? undefined : 'me noopener noreferrer'}
+              >
+                <i class={`feng-icon feng-fa ${SOCIAL_ICONS[item.key]}`} aria-hidden="true" />
+              </a>
+            ))}
+          </nav>
+        )
+      }
+    </header>
+
+    <div class="feng-page-grid">
+      <aside class="feng-profile" data-xf-reveal>
+        <div class="feng-profile__avatar">
+          <img src={avatar} width="88" height="88" alt={name} />
+        </div>
+        <h2>{name}</h2>
+        {THEME.profile_tagline && <p>{THEME.profile_tagline}</p>}
+        {THEME.profile_location && <p class="feng-muted">⌖ {THEME.profile_location}</p>}
+      </aside>
+
+      <div class="xf-prose feng-page-prose" data-xf-reveal>
+        <p>
+          {SITE.title} 是一个由 Astro 驱动的静态博客，内容以 Markdown 存放在本地仓库里，
+          由 <strong>Ficor's Astro CMS</strong> 统一管理：写文章、审评论、管友链、看订阅、同步说说。
+        </p>
+        <p>
+          站点的前端由 <strong>山映 · ShanYing</strong> 主题驱动 —— 山水光影的首页 Hero、
+          随访客昼夜与天气变化的配色、站点热力图、说说便签，
+          以及一整套渐进式导航与深浅配色交互。
+        </p>
+
+        <h2>个人简介</h2>
+        <p>
+          我是 {name}，一位对技术充满热情的探索者，同时也是一名热爱技术和写作的开发者，
+          积极探索技术与生活的交汇点。
+        </p>
+        <p class="feng-muted">
+          小时候打喷嚏就觉得是有人在想我，猜过很多人，唯独没猜到过是现在的自己。
+        </p>
+        <p>
+          {THEME.social_mastodon && (
+            <>
+              你可以在{' '}
+              <a href={THEME.social_mastodon} rel="me noopener noreferrer">Mastodon</a> 看到我的近况，
+            </>
+          )}
+          {THEME.social_github && (
+            <>
+              在 <a href={THEME.social_github} rel="me noopener noreferrer">GitHub</a> 看到我的项目和 Fork，
+            </>
+          )}
+          也可以用 <a href={`mailto:${SITE.email}`}>{SITE.email}</a> 与我联系。
+        </p>
+
+        <h2>技术栈</h2>
+        <ul>
+          <li>Astro 7 + TypeScript strict，页面静态化 + <code>/api</code> 服务端接口</li>
+          <li>Content Collections 内容集合（文章 / 说说 / 友链 / 评论 / 订阅源）</li>
+          <li>主题 CSS 与模块化 JS 沿用山映原生产物，行为与 WordPress 版一致</li>
+          <li>地图、天气、GitHub 动态等外部能力按需开启，缺密钥时自动降级</li>
+        </ul>
+
+        <h2>联系方式</h2>
+        <ul>
+          <li>邮箱：<a href={`mailto:${SITE.email}`}>{SITE.email}</a></li>
+          <li>订阅：<a href="/rss.xml">RSS</a></li>
+          <li>友链：<a href="/friends/">友情链接</a></li>
+          <li>留言：<a href="/guestbook/">留一句话</a></li>
+        </ul>
+
+        <h2>站点信息</h2>
+        <ul>
+          <li>名称：{siteInfo.title || SITE.title}</li>
+          <li>地址：{siteInfo.url || SITE.url}</li>
+          <li>简介：{siteInfo.description || SITE.subtitle}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

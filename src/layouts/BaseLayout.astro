@@ -1,0 +1,403 @@
+---
+/**
+ * 山映主题 · 文档外壳。
+ *
+ * 移植自 WordPress 主题的 header.php + footer.php：
+ *   - 预绘制主题解析脚本（避免刷新闪烁）
+ *   - 站点头部 / 控制面板 / 主体 / 页脚
+ *   - 资源加载：主题 CSS + 模块化 JS（data-shanying-modules 白名单）
+ *
+ * 与原主题一致，前端 JS 通过 `#feng-config` 拿到 API 入口，
+ * 用 `?action=feng_xxx` 调度（对应原 WP 的 admin-ajax.php）。
+ */
+import { SITE } from '../config/site';
+import { THEME } from '../lib/theme';
+import { icon } from '../lib/icons';
+import '../styles/global.css';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import Dashboard from '../components/Dashboard.astro';
+import MusicPlayer from '../components/MusicPlayer.astro';
+import PetWidget from '../components/PetWidget.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** 额外挂载的脚本模块（handle），默认全量启用 */
+  modules?: string[];
+  bodyClass?: string;
+  /** 影响 body 上的文章/页面类名 */
+  kind?: 'home' | 'post' | 'page' | 'other';
+  ogImage?: string;
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description = SITE.description,
+  modules,
+  bodyClass = '',
+  kind = 'other',
+  ogImage,
+  noindex = false,
+} = Astro.props;
+
+const pageTitle = title ? `${title} · ${SITE.title}` : `${SITE.title} · ${SITE.subtitle}`;
+const scheme = THEME.default_scheme;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? SITE.url).href;
+
+/**
+ * 脚本模块白名单。原 WordPress 主题把所有模块都 enqueue，
+ * 各模块内部再按 DOM 选择器自我守卫，这里保持同样行为。
+ */
+const ALL_MODULES = [
+  'xf-app',
+  'feng-navigation',
+  'feng-dashboard',
+  'feng-toast',
+  'feng-friend-avatar',
+  'feng-feed',
+  'feng-music',
+  'feng-activity',
+  'feng-talk',
+  'feng-comment-profile',
+  'feng-pet-motion',
+  'feng-pet',
+  'feng-reading',
+  'feng-related',
+  'feng-home-profile',
+  'feng-context',
+  'feng-jieqi',
+  'feng-image-fade',
+  'feng-greeting',
+  'feng-visitor-stats',
+];
+const enabledModules = modules ?? ALL_MODULES;
+
+const endpoint = '/api/ajax';
+const frontendConfig = {
+  icons: {
+    check: icon('check'),
+    'chevron-down': icon('chevron-down'),
+    play: icon('play'),
+    pause: icon('pause'),
+  },
+  endpoint,
+  // 末尾斜杠不能省：app.js 直接把评论 ID 拼在后面
+  commentLocationEndpoint: '/api/comment-location/',
+  greeting: {
+    enabled: THEME.greeting_enabled,
+    pet: THEME.greeting_pet,
+    weather: THEME.greeting_weather,
+    service: THEME.greeting_weather_service,
+    site: SITE.title,
+  },
+  pet: THEME.pet_enabled ? { url: endpoint, nonce: 'shanying' } : undefined,
+};
+
+const siteClass = [
+  'xf-site',
+  kind === 'page' ? 'feng-integrated-page' : '',
+  kind === 'post' ? 'feng-article-page' : '',
+]
+  .filter(Boolean)
+  .join(' ');
+---
+
+<!doctype html>
+<html lang={SITE.lang} data-xf-theme={scheme === 'system' ? undefined : scheme}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="xf-theme" content="0.5.2" />
+    <meta name="feng-scheme" content={scheme} />
+    <meta name="feng-reveal" content="on" />
+    <meta name="xf-navigation" content="on" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} RSS`} href="/rss.xml" />
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta property="og:type" content={kind === 'post' ? 'article' : 'website'} />
+    <meta property="og:site_name" content={SITE.title} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {ogImage && <meta property="og:image" content={new URL(ogImage, Astro.site ?? SITE.url).href} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+
+    <script is:inline define:vars={{ configured: scheme }}>
+      /* 在样式与 body 绘制前解析访客配色，避免刷新闪烁。 */
+      (function () {
+        var root = document.documentElement,
+          saved,
+          manual = false;
+        try {
+          saved = localStorage.getItem('xf-theme');
+          manual =
+            localStorage.getItem('xf-theme-manual') === '1' &&
+            (saved === 'light' || saved === 'dark');
+        } catch (e) {}
+        var setting =
+          configured !== 'system'
+            ? configured
+            : saved === 'light' || saved === 'dark' || saved === 'system'
+              ? saved
+              : 'system';
+        var dark =
+          setting === 'dark' ||
+          (setting !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var hour = new Date().getHours(),
+          night = hour < 6 || hour >= 18;
+        root.setAttribute('data-xf-theme', (night && !manual) || dark ? 'dark' : 'light');
+      })();
+    </script>
+    <style is:inline>
+      html {
+        background: #fafafa;
+        color-scheme: light;
+      }
+      html[data-xf-theme='dark'] {
+        background: #0a0a0a;
+        color-scheme: dark;
+      }
+      html[data-xf-theme='dark'] body {
+        background: #0a0a0a;
+      }
+    </style>
+
+    <!-- 主题样式（山映原生产物，含全部 @font-face 与深浅配色变量） -->
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <!-- 图标字体 -->
+    <link
+      rel="stylesheet"
+      href="https://static.bluecdn.com/libs/fontawesome-pro-plus/7.3.1/css/all.min.css"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://static.bluecdn.com/libs/fontawesome-pro-plus/7.3.1/css/all.min.css"
+        media="all"
+      />
+    </noscript>
+    {
+      kind === 'home' && (
+        <link rel="stylesheet" href="https://static.bluecdn.com/fonts/zzqxmxht.css" />
+      )
+    }
+    {
+      kind === 'post' && (
+        <link rel="stylesheet" href="https://static.bluecdn.com/fonts/kuaikanshijieti.css" />
+      )
+    }
+
+    <script
+      is:inline
+      type="application/json"
+      id="feng-config"
+      set:html={JSON.stringify(frontendConfig)}
+    />
+  </head>
+
+  <body class={bodyClass}>
+    <div class="xf-global-loading" data-xf-progress aria-hidden="true">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor" focusable="false">
+        <rect x="1.5" y="1.5" rx="1" width="9" height="9">
+          <animate
+            id="polar_loading_first"
+            begin="0;polar_loading_last.end+0.15s"
+            attributeName="x"
+            dur="0.6s"
+            values="1.5;0.5;1.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="0;polar_loading_last.end+0.15s"
+            attributeName="y"
+            dur="0.6s"
+            values="1.5;0.5;1.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="0;polar_loading_last.end+0.15s"
+            attributeName="width"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="0;polar_loading_last.end+0.15s"
+            attributeName="height"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+        </rect>
+        <rect x="13.5" y="1.5" rx="1" width="9" height="9">
+          <animate
+            begin="polar_loading_first.begin+0.15s"
+            attributeName="x"
+            dur="0.6s"
+            values="13.5;12.5;13.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.15s"
+            attributeName="y"
+            dur="0.6s"
+            values="13.5;12.5;13.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.15s"
+            attributeName="width"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.15s"
+            attributeName="height"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+        </rect>
+        <rect x="13.5" y="13.5" rx="1" width="9" height="9">
+          <animate
+            begin="polar_loading_first.begin+0.3s"
+            attributeName="x"
+            dur="0.6s"
+            values="13.5;12.5;13.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.3s"
+            attributeName="y"
+            dur="0.6s"
+            values="13.5;12.5;13.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.3s"
+            attributeName="width"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.3s"
+            attributeName="height"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+        </rect>
+        <rect x="1.5" y="13.5" rx="1" width="9" height="9">
+          <animate
+            id="polar_loading_last"
+            begin="polar_loading_first.begin+0.45s"
+            attributeName="x"
+            dur="0.6s"
+            values="1.5;0.5;1.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.45s"
+            attributeName="y"
+            dur="0.6s"
+            values="1.5;0.5;1.5"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.45s"
+            attributeName="width"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+          <animate
+            begin="polar_loading_first.begin+0.45s"
+            attributeName="height"
+            dur="0.6s"
+            values="9;11;9"
+            keyTimes="0;.2;1"></animate>
+        </rect>
+      </svg>
+    </div>
+    <p class="screen-reader-text" data-xf-status role="status" aria-live="polite"></p>
+
+    <div id="xf-view" class={siteClass}>
+      <SiteHeader />
+
+      <Dashboard />
+
+      <main id="xf-content" class="xf-main" tabindex="-1">
+        <slot />
+      </main>
+
+      <SiteFooter />
+    </div>
+
+    <button class="xf-top" type="button" data-xf-top data-lordicon-content="top" aria-label="返回顶部">
+      <i class="fa-solid fa-square-up" aria-hidden="true"></i>
+    </button>
+
+    <MusicPlayer />
+
+    {THEME.pet_enabled && <PetWidget />}
+
+    <!-- 页面快捷右键菜单（feng-context 模块） -->
+    <div class="feng-page-menu" data-page-menu role="menu" aria-label="页面快捷操作" hidden>
+      <div class="feng-page-menu-nav">
+        {
+          (
+            [
+              ['back', 'arrow-left', '后退'],
+              ['forward', 'arrow-right', '前进'],
+              ['reload', 'refresh', '重新加载'],
+              ['top', 'arrow-up', '回到顶部'],
+            ] as const
+          ).map(([key, iconName, label]) => (
+            <button role="menuitem" type="button" data-page-tool={key} aria-label={label} set:html={icon(iconName)} />
+          ))
+        }
+      </div>
+      {
+        (
+          [
+            ['link-tab', 'arrow-up-right', '在新标签页打开'],
+            ['link-window', 'arrow-up-right', '在新窗口打开'],
+            ['link-copy', 'link', '复制链接地址'],
+            ['previous', 'previous', '上一篇'],
+            ['next', 'next', '下一篇'],
+            ['comment', 'comment', '留言'],
+            ['random', 'dice', '随机阅读一篇文章'],
+            ['copy', 'copy', '复制页面地址'],
+            ['theme', 'moon', '切换深浅配色'],
+          ] as const
+        ).map(([key, iconName, label]) => (
+          <button role="menuitem" type="button" data-page-tool={key}>
+            <Fragment set:html={icon(iconName)} />
+            <span>{label}</span>
+          </button>
+        ))
+      }
+    </div>
+    <span class="screen-reader-text" data-page-menu-status role="status"></span>
+
+    <!-- 节气提醒开关（feng-jieqi 模块） -->
+    <button
+      type="button"
+      class="feng-jieqi-toggle"
+      data-jieqi-toggle
+      aria-pressed="true"
+      title="关闭节气与节假日提醒"
+    >
+      节气提醒<span data-jieqi-state>已开启</span>
+    </button>
+
+    <!-- 主题脚本包：模块白名单写在 data-shanying-modules 上 -->
+    <script
+      is:inline
+      data-shanying-modules={JSON.stringify(enabledModules)}
+      src="/assets/js/main.js"
+      defer
+    ></script>
+    <!-- 代码高亮与文章图片灯箱 -->
+    <script is:inline src="https://litezoom.dev/litezoom.min.js" defer></script>
+    <script is:inline src="/assets/vendor/highlight/highlight.min.js" defer></script>
+    <script is:inline src="/assets/js/article-media.js" defer></script>
+  </body>
+</html>

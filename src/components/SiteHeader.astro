@@ -1,0 +1,192 @@
+---
+/**
+ * 站点头部。移植自 header.php。
+ *
+ * 关键契约（前端 JS 依赖）：
+ *   - `.feng-header-search form` 内的输入框 name 必须是 `s`
+ *   - 随机文章按钮需要 data-endpoint / data-exclude
+ *   - 配色切换按钮需要 data-xf-theme-toggle / data-mode
+ *   - 控制面板开关需要 data-feng-dashboard-toggle
+ */
+import { getCollection } from 'astro:content';
+import { SITE } from '../config/site';
+import { THEME } from '../lib/theme';
+import { icon } from '../lib/icons';
+import { entrySlug } from '../lib/posts';
+
+const essays = await getCollection('essay', ({ data }) => !data.draft);
+const categories = [...new Set(essays.map((e) => e.data.category).filter(Boolean))].slice(0, 6);
+
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+const NAV_ITEMS = [
+  { href: '/', label: '首页' },
+  { href: '/moments/', label: '说说' },
+  { href: '/friends/', label: '友链' },
+  { href: '/subscribe/', label: '订阅' },
+  { href: '/archives/', label: '存档' },
+  { href: '/about/', label: '关于' },
+  { href: '/guestbook/', label: '留言' },
+];
+
+const isCurrent = (href: string) =>
+  href === '/' ? currentPath === '/' : currentPath.startsWith(href.replace(/\/$/, ''));
+
+const avatar = THEME.profile_avatar || THEME.hero_portrait;
+---
+
+<header class="xf-header xf-container">
+  <a class="xf-brand" href="/" rel="home">
+    <span class="xf-brand__avatar" aria-hidden="true">
+      {
+        avatar ? (
+          <img src={avatar} width="40" height="40" alt="" loading="eager" decoding="async" />
+        ) : (
+          <span class="feng-brand-fallback">{SITE.author.slice(0, 1)}</span>
+        )
+      }
+    </span>
+    <span class="xf-brand__title">
+      {SITE.title}
+      <small>{SITE.subtitle}</small>
+    </span>
+  </a>
+
+  <nav class="xf-nav" aria-label="主导航">
+    <ul class="xf-menu">
+      <li class={categories.length ? 'menu-item-has-children' : ''}>
+        <a href="/" aria-current={isCurrent('/') ? 'page' : undefined}>首页</a>
+        {
+          categories.length > 0 && (
+            <ul class="sub-menu">
+              {categories.map((category) => (
+                <li>
+                  <a
+                    href={`/essay/category/${encodeURIComponent(category)}/`}
+                    aria-current={currentPath === `/essay/category/${encodeURIComponent(category)}` ? 'page' : undefined}
+                  >
+                    {category}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </li>
+      {
+        NAV_ITEMS.slice(1).map((item) => (
+          <li>
+            <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+              {item.label}
+              {/*
+                订阅源的「今日更新」角标。
+                feng-feed 模块会读 .feng-feed-badge 里的 .t-badge-dot 与
+                .screen-reader-text，三者缺一不可。
+              */}
+              {item.href === '/subscribe/' && (
+                <span class="t-badge feng-feed-badge" data-open="false" data-feed-count="0">
+                  <span class="t-badge-dot" aria-hidden="true">0</span>
+                  <span class="screen-reader-text">，今日更新 0 篇</span>
+                </span>
+              )}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+
+  <div class="xf-tools">
+    <div class="feng-header-search">
+      <button
+        class="xf-icon-button"
+        type="button"
+        data-xf-search-open
+        aria-expanded="false"
+        aria-controls="feng-header-search"
+        aria-label="打开搜索"
+      >
+        <i class="feng-icon feng-fa fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      </button>
+      <form
+        id="feng-header-search"
+        class="xf-search feng-header-search__form"
+        role="search"
+        method="get"
+        action="/search"
+        inert
+        aria-hidden="true"
+      >
+        <label class="screen-reader-text" for="feng-header-query">搜索文章</label>
+        <input
+          id="feng-header-query"
+          type="search"
+          name="s"
+          placeholder="搜索文章…"
+          autocomplete="off"
+        />
+        <button type="submit" aria-label="提交搜索">
+          <i class="feng-icon feng-fa fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </button>
+      </form>
+    </div>
+
+    <a
+      class="xf-icon-button feng-random-article"
+      href="/api/ajax?action=feng_random_article"
+      data-feng-random
+      data-endpoint="/api/ajax"
+      data-exclude="0"
+      aria-label="随机阅读一篇文章"
+      title="随机文章"
+      set:html={icon('dice')}
+    />
+
+    {
+      THEME.default_scheme === 'system' && (
+        <button
+          class="xf-icon-button"
+          type="button"
+          data-xf-theme-toggle
+          data-mode="system"
+          aria-label="切换深浅配色"
+          aria-pressed="false"
+        >
+          <i class="fa-solid fa-desktop feng-scheme-system" aria-hidden="true" />
+          <span class="feng-scheme-moon" set:html={icon('moon')} />
+          <span class="feng-scheme-sun" set:html={icon('sun')} />
+        </button>
+      )
+    }
+
+    {
+      THEME.social_rss && (
+        <a
+          class="xf-icon-button"
+          href="/rss.xml"
+          data-feng-copy-rss
+          aria-label="RSS 订阅"
+          title="复制 RSS 订阅链接"
+          set:html={icon('rss')}
+        />
+      )
+    }
+
+    <button
+      class="xf-icon-button feng-dashboard-toggle"
+      type="button"
+      data-feng-dashboard-toggle
+      aria-label="打开控制面板"
+      aria-expanded="false"
+      aria-controls="feng-dashboard"
+      title="控制面板"
+    >
+      <span class="t-icon-swap" data-state="a" aria-hidden="true">
+        <span class="t-icon" data-icon="a">
+          <i class="feng-icon feng-fa fa-solid fa-grid-2" aria-hidden="true"></i>
+        </span>
+        <span class="t-icon" data-icon="b" set:html={icon('close')} />
+      </span>
+    </button>
+  </div>
+</header>

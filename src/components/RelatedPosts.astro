@@ -1,0 +1,95 @@
+---
+/**
+ * 再读一篇。移植自 template-parts/content-single.php 末尾的 related 区块。
+ *
+ * 契约：[data-related] > [data-related-panel] 内至少 4 个 .feng-related-item，
+ * feng-related 模块会重排并切换 hidden。
+ */
+import DeferredImage from './DeferredImage.astro';
+import { icon } from '../lib/icons';
+import type { PostMeta } from '../lib/content';
+
+interface Props {
+  posts: PostMeta[];
+  currentSlug: string;
+}
+
+const { posts, currentSlug } = Astro.props;
+
+const others = posts.filter((post) => post.slug !== currentSlug);
+
+function pick(mode: 'related' | 'category' | 'random'): PostMeta[] {
+  if (mode === 'related') {
+    const current = posts.find((post) => post.slug === currentSlug);
+    if (!current) return [];
+    const scored = others
+      .map((post) => ({
+        post,
+        score: post.tags.filter((tag) => current.tags.includes(tag)).length,
+      }))
+      .sort((a, b) => b.score - a.score || b.post.date.valueOf() - a.post.date.valueOf());
+    return scored.filter((item) => item.score > 0).map((item) => item.post);
+  }
+  if (mode === 'category') {
+    const current = posts.find((post) => post.slug === currentSlug);
+    const categories = current?.categories ?? [];
+    const pool = others.filter((post) =>
+      post.categories.some((category) => categories.includes(category)),
+    );
+    return pool.length ? pool.sort(() => 0.5 - Math.random()) : [];
+  }
+  return [...others].sort(() => 0.5 - Math.random());
+}
+
+const items = [...pick('related'), ...pick('category'), ...pick('random')]
+  .filter((post, index, list) => list.findIndex((item) => item.slug === post.slug) === index)
+  .slice(0, 6);
+---
+
+<section class="feng-reading-related" aria-label="继续阅读" data-related>
+  <header class="feng-related-heading">
+    <div>
+      <p class="xf-section-kicker">KEEP READING</p>
+      <h2>再读一篇</h2>
+    </div>
+    <button
+      type="button"
+      class="feng-related-refresh"
+      data-related-refresh
+      aria-label="换一组文章"
+    >
+      <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>
+    </button>
+  </header>
+  <div class="feng-related-panel" data-related-panel>
+    {
+      items.length === 0 && <p class="feng-related-empty">暂时没有其他文章。</p>
+    }
+    {
+      items.map((post, index) => (
+        <a class="feng-related-item" href={post.url} hidden={index >= 3}>
+          <div class="feng-related-image">
+            {post.cover ? (
+              <DeferredImage src={post.cover} alt="" />
+            ) : (
+              <span aria-hidden="true" set:html={icon('words')} />
+            )}
+          </div>
+          <div class="feng-related-caption">
+            <span class="feng-related-title">{post.title}</span>
+            <div class="feng-related-meta">
+              <time datetime={post.iso}>
+                {post.date.getFullYear()}.
+                {String(post.date.getMonth() + 1).padStart(2, '0')}.
+                {String(post.date.getDate()).padStart(2, '0')}
+              </time>
+              <span>{post.commentCount} 评论</span>
+              <span>{post.views.toLocaleString('zh-CN')} 阅读</span>
+            </div>
+          </div>
+        </a>
+      ))
+    }
+  </div>
+  <p class="feng-related-status screen-reader-text" role="status" data-related-status></p>
+</section>

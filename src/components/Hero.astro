@@ -1,0 +1,310 @@
+---
+/**
+ * 首页 Hero。移植自 template-parts/home-hero.php。
+ *
+ * 前端契约：
+ *   - [data-xf-stage] + data-scene-images → feng-greeting 模块切换山水场景
+ *   - [data-hero-weather] + data-endpoint → 拉取 /api/ajax?action=feng_weather
+ *   - [data-github-stats] → feng-home-profile 拉取 GitHub 动态
+ *   - [data-hero-activity] → 拉取热力图计数与访客
+ *   - [data-profile-day] → 点击某天弹出当天记录
+ */
+import { SITE } from '../config/site';
+import { THEME, SCENE_IMAGES } from '../lib/theme';
+import { icon } from '../lib/icons';
+import { sortedMemos } from '../lib/data';
+
+const smartScene = THEME.hero_smart_scene;
+const portrait = THEME.hero_portrait || THEME.profile_avatar;
+const photos = [THEME.hero_photo_1, THEME.hero_photo_2, THEME.hero_photo_3, THEME.hero_photo_4].filter(
+  Boolean,
+);
+const profileName = THEME.profile_name || SITE.author;
+
+// 近 90 天的热力图格子
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const days = Array.from({ length: 90 }, (_, i) => {
+  const date = new Date(today);
+  date.setDate(date.getDate() - (89 - i));
+  const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`;
+  return { iso, label: `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日` };
+});
+
+// 最新一条说说
+const latestMemo = sortedMemos().find((memo) => memo.visibility === 'PUBLIC');
+const relative = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.max(1, Math.round(diff / 60000));
+  if (minutes < 60) return `${minutes}分钟`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}小时`;
+  const days2 = Math.round(hours / 24);
+  return `${days2}天`;
+};
+---
+
+<section
+  class="xf-stage feng-profile-hero"
+  aria-labelledby="xf-stage-title"
+  data-xf-stage
+  data-smart-scene={smartScene ? '' : undefined}
+  data-scene-images={smartScene ? JSON.stringify(SCENE_IMAGES) : undefined}
+  data-scene-preview={THEME.hero_scene_preview}
+  data-scene-animation={THEME.hero_scene_animation ? 'true' : 'false'}
+>
+  <noscript>
+    <style>
+      .feng-photo-stack[data-stack-loading] .feng-stack-front {
+        opacity: 1;
+      }
+    </style>
+  </noscript>
+
+  {
+    smartScene && (
+      <img
+        class="polar-hero-landscape"
+        src={SCENE_IMAGES.day}
+        alt=""
+        decoding="async"
+        fetchpriority="high"
+        aria-hidden="true"
+      />
+    )
+  }
+
+  {
+    (THEME.greeting_weather || smartScene) && (
+      <details
+        class="feng-hero-weather"
+        data-hero-weather
+        data-watermark-enabled={THEME.greeting_weather ? 'true' : 'false'}
+        data-animated={THEME.weather_animation ? 'true' : 'false'}
+        data-visitor={THEME.weather_visitor ? 'true' : 'false'}
+        data-endpoint="/api/ajax"
+        hidden
+      >
+        <summary aria-label="查看两地天气">
+          <svg
+            viewBox="0 0 80 80"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <g class="weather-sun">
+              <circle cx="40" cy="32" r="13" />
+              <path d="M40 10v-5m0 49v5M18 32h-5m49 0h5M24 16l-4-4m36 36 4 4M24 48l-4 4m36-36 4-4" />
+            </g>
+            <path class="weather-cloud" d="M21 48a11 11 0 1 1 2-22 17 17 0 0 1 33 2 10 10 0 1 1 3 20Z" />
+            <g class="weather-rain">
+              <path d="m27 56-3 8m16-8-3 8m16-8-3 8" />
+            </g>
+            <g class="weather-snow">
+              <circle cx="25" cy="59" r="2" />
+              <circle cx="40" cy="63" r="2" />
+              <circle cx="55" cy="58" r="2" />
+            </g>
+            <path class="weather-moon" d="M53 45A21 21 0 0 1 32 16a22 22 0 1 0 21 29Z" />
+          </svg>
+        </summary>
+        <div class="feng-weather-card">
+          <p class="polar-weather-date" data-weather-date />
+          <p data-weather-host hidden />
+          <p data-weather-visitor hidden />
+        </div>
+      </details>
+    )
+  }
+
+  <div class="feng-profile-top">
+    <div class="xf-stage__identity">
+      <div class="feng-hero-welcome-row">
+        <p class="xf-welcome" data-feng-greeting>{THEME.xf_eyebrow}</p>
+        <div class="feng-mini-activity" data-github-stats data-endpoint="/api/ajax">
+          {THEME.social_x && (
+            <a
+              href={THEME.social_x}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="X / Twitter"
+              title="X / Twitter"
+            >
+              <i class="feng-icon fa-brands fa-x-twitter" aria-hidden="true"></i>
+            </a>
+          )}
+          {THEME.social_github && (
+            <a
+              href={THEME.social_github}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+              title="GitHub"
+            >
+              <i class="feng-icon fa-brands fa-github" aria-hidden="true"></i>
+            </a>
+          )}
+          <span data-github-slot><small>GitHub 同步中</small></span>
+        </div>
+      </div>
+
+      <h1 id="xf-stage-title">{SITE.subtitle}</h1>
+
+      <div class="feng-hero-latest">
+        {
+          latestMemo && (
+            <a class="feng-hero-note" href="/moments/">
+              <small>
+                <Fragment set:html={icon('comment')} />
+                <span>最新说说 · {relative(latestMemo.createdAt)}前</span>
+              </small>
+              <span>{latestMemo.content.slice(0, 90)}{latestMemo.content.length > 90 ? '…' : ''}</span>
+            </a>
+          )
+        }
+      </div>
+    </div>
+
+    <div class="feng-profile-visual">
+      <button
+        class="feng-photo-stack"
+        data-stack-loading
+        type="button"
+        data-profile-open
+        aria-haspopup="dialog"
+        aria-label={`展开${profileName}的个人相册`}
+      >
+        {
+          portrait ? (
+            <img
+              class="feng-stack-front"
+              fetchpriority="high"
+              loading="eager"
+              src={portrait}
+              alt={profileName}
+            />
+          ) : (
+            <span class="feng-stack-front feng-stack-placeholder" aria-hidden="true">
+              {profileName.slice(0, 1)}
+            </span>
+          )
+        }
+        {photos.map((photo, index) => (
+          <span class="feng-stack-piece" data-corner={index}>
+            <img class="feng-stack-back" data-stack-src={photo} alt="" />
+          </span>
+        ))}
+      </button>
+      {THEME.pet_enabled && <div class="feng-home-perch" data-feng-pet-slot />}
+    </div>
+  </div>
+
+  <div class="feng-profile-bottom" data-hero-activity data-endpoint="/api/ajax">
+    <div class="feng-profile-calendar">
+      <div class="feng-profile-calendar-heading">
+        <strong>
+          <span class="feng-activity-icon" data-lordicon-content="siteactivity" aria-hidden="true">
+            <i class="fa-solid fa-chart-column"></i>
+          </span>
+          站点动态
+        </strong>
+        <div
+          class="feng-heatmap-legend"
+          aria-label="每日发布数量：从少到多，依次为 0、1、2、3、4 条及以上"
+        >
+          <span>少</span>
+          {[0, 1, 2, 3, 4].map((level) => (
+            <i data-level={level} title={level === 4 ? '4 条及以上' : `${level} 条`} aria-hidden="true" />
+          ))}
+          <span>多</span>
+        </div>
+        <div class="feng-weekly-badges" data-hero-badges aria-label="站点统计">
+          <span title="全部 · 文章">文章 <b>—</b></span>
+          <span title="全部 · 说说">说说 <b>—</b></span>
+          <span title="全部 · 评论">评论 <b>—</b></span>
+        </div>
+      </div>
+      <div class="feng-heatmap" aria-label="本站发布记录热力图" aria-busy="true">
+        {
+          days.map((day) => (
+            <button
+              type="button"
+              data-profile-day={day.iso}
+              data-level="0"
+              disabled
+              aria-label={day.label}
+            />
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="feng-profile-updates">
+      <div class="feng-profile-visitors">
+        <div class="feng-visitors-heading">
+          <small>最近来聊天的朋友</small>
+          <nav class="feng-discover-links" aria-label="发现更多博客">
+            <span class="feng-discover-label">发现更多博客</span>
+            <a
+              class="xf-icon-button"
+              href="https://www.travellings.cn/go.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="开往，发现更多博客"
+              title="开往 · 发现更多博客"
+            >
+              <i class="feng-icon feng-fa fa-solid fa-train" aria-hidden="true"></i>
+            </a>
+            <a
+              class="xf-icon-button"
+              href="https://www.foreverblog.cn/go.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="十年之约，探索更多文章"
+              title="十年之约 · 探索更多文章"
+            >
+              <i class="feng-icon feng-fa fa-solid fa-blog" aria-hidden="true"></i>
+            </a>
+          </nav>
+        </div>
+        <div data-hero-visitors />
+      </div>
+    </div>
+  </div>
+
+  <dialog class="feng-profile-dialog" data-profile-dialog aria-label="个人相册">
+    <button type="button" data-profile-close aria-label="关闭">×</button>
+    <header>
+      {portrait && <img src={portrait} alt="" />}
+      <div>
+        <h2>{profileName}</h2>
+        <p>{THEME.profile_tagline}</p>
+      </div>
+    </header>
+    <div class="feng-profile-photos">
+      {
+        photos.map((photo, index) => (
+          <button
+            type="button"
+            data-profile-photo={photo}
+            aria-label={`放大生活照片 ${index + 1}`}
+          >
+            <img src={photo} alt={`生活照片 ${index + 1}`} loading="lazy" />
+          </button>
+        ))
+      }
+    </div>
+    <img data-profile-large hidden alt="放大的生活照片" />
+  </dialog>
+
+  <dialog class="feng-profile-dialog" data-profile-calendar-dialog aria-label="当天记录">
+    <button type="button" data-profile-close aria-label="关闭">×</button>
+    <h2 data-profile-date />
+    <div data-profile-records hidden />
+    <p data-profile-empty hidden>这一天没有发布记录。</p>
+  </dialog>
+</section>

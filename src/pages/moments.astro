@@ -1,0 +1,183 @@
+---
+/**
+ * 说说页。移植自 pages/talks.php。
+ *
+ * feng-talk 模块的 DOM 契约（见 docs/frontend-contract.md §3.9）非常密集：
+ * 根节点 [data-feng-talks] 及 30 余个子选择器缺一不可，缺失会让对应交互静默失效。
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { icon } from '../lib/icons';
+import { loadTalks } from '../lib/talks';
+import { renderTalkBoard } from '../lib/render';
+import { SITE } from '../config/site';
+
+/**
+ * 说说有运行期新增（在 /admin 或前台发布），首屏板子又是服务端渲染的，
+ * 所以这一页必须按请求渲染，否则新发布的说说在前台看不到。
+ */
+export const prerender = false;
+
+const memos = await loadTalks();
+const board = renderTalkBoard(memos);
+const UPLOAD_LIMIT = 4 * 1024 * 1024;
+---
+
+<BaseLayout kind="page" title="说说" description="不必写成一篇文章，也值得留在这里。">
+  <section
+    class="feng-talks xf-container"
+    data-feng-talks
+    data-endpoint="/api/ajax"
+    data-page-url={new URL('/moments/', Astro.site ?? SITE.url).href}
+    data-upload-limit={UPLOAD_LIMIT}
+    data-upload-total={UPLOAD_LIMIT * 4}
+    data-upload-label="4 MB"
+  >
+    <header class="feng-unified-heading">
+      <h1><i class="fa-solid fa-comment-dots feng-page-title-icon" aria-hidden="true"></i> 说说</h1>
+      <small data-talk-total>{memos.length}</small>
+    </header>
+
+    <div class="feng-talk-introduction">
+      <p>不必写成一篇文章，也值得留在这里。</p>
+    </div>
+
+    <div class="feng-talk-filter" data-talk-filter hidden>
+      <span data-talk-filter-label></span>
+      <button type="button" data-talk-clear>
+        查看全部 <Fragment set:html={icon('close')} />
+      </button>
+    </div>
+
+    <div class="feng-talk-board" data-talk-board set:html={board} />
+
+    <div class="feng-talk-empty" data-talk-empty hidden={memos.length > 0}>
+      <Fragment set:html={icon('comment')} />
+      <h2>留一张生活的便签</h2>
+      <p>一些念头，一张照片，或者今天的小事。</p>
+    </div>
+
+    <div class="feng-talk-more">
+      <button type="button" class="xf-glass-link" data-talk-more hidden>再翻一些 <Fragment set:html={icon('arrow-down')} /></button>
+    </div>
+
+    <nav class="feng-talk-dock" aria-label="说说工具">
+      <strong>说说<span></span></strong>
+      <button
+        type="button"
+        data-talk-filter-toggle
+        aria-label="筛选关键词"
+        aria-expanded="false"
+        aria-controls="feng-talk-tags"
+        set:html={icon('hash')}
+      />
+      <button type="button" data-talk-create aria-label="发布说说" hidden set:html={icon('plus')} />
+      <a data-talk-login href="/admin/" aria-label="登录后发布说说" set:html={icon('person')} />
+      <button
+        type="button"
+        data-talk-layout
+        aria-label="切换为整齐排列"
+        aria-pressed="false"
+        set:html={icon('grid')}
+      />
+      <span data-talk-dock-count>{memos.length} 条</span>
+    </nav>
+
+    <aside id="feng-talk-tags" class="feng-talk-tag-picker" data-talk-tags hidden aria-label="关键词筛选">
+      <header>
+        <strong>按关键词看看</strong>
+        <button type="button" data-talk-filter-close aria-label="关闭关键词筛选" set:html={icon('close')} />
+      </header>
+      <div data-talk-tag-list></div>
+    </aside>
+
+    <p class="feng-talk-notice" data-talk-notice role="status" aria-live="polite" hidden>
+      <span></span>
+      <button type="button" data-talk-undo hidden>撤销删除</button>
+      <button type="button" data-talk-notice-close aria-label="关闭提示" set:html={icon('close')} />
+    </p>
+
+    <dialog class="feng-talk-dialog" data-talk-detail aria-labelledby="feng-talk-detail-title">
+      <div class="feng-talk-detail-head">
+        <div>
+          <p>生活的便签</p>
+          <h2 id="feng-talk-detail-title">这一刻</h2>
+        </div>
+        <button type="button" data-talk-close aria-label="关闭说说" set:html={icon('close')} />
+      </div>
+      <div class="feng-talk-detail-tags" data-talk-detail-tags></div>
+      <p class="feng-talk-detail-content" data-talk-detail-content></p>
+      <div class="feng-talk-detail-images" data-talk-detail-images></div>
+      <footer>
+        <span data-talk-detail-meta></span>
+        <div data-talk-manage hidden>
+          <button type="button" data-talk-edit><Fragment set:html={icon('edit')} /> 编辑</button>
+          <button type="button" data-talk-delete><Fragment set:html={icon('trash')} /> 删除</button>
+        </div>
+      </footer>
+      <div class="feng-talk-delete-confirm" data-talk-delete-confirm hidden>
+        <p>将这条说说移入回收站？</p>
+        <button type="button" data-talk-delete-cancel>先留着</button>
+        <button type="button" data-talk-delete-confirm-button>确认删除</button>
+      </div>
+    </dialog>
+
+    <dialog class="feng-talk-dialog feng-talk-compose" data-talk-compose aria-labelledby="feng-talk-compose-title">
+      <header>
+        <div>
+          <p>留住一个小小的瞬间</p>
+          <h2 id="feng-talk-compose-title">写条说说</h2>
+        </div>
+        <button type="button" data-talk-close aria-label="关闭编辑" set:html={icon('close')} />
+      </header>
+      <form data-talk-form enctype="multipart/form-data">
+        <label class="screen-reader-text" for="feng-talk-content">说说正文</label>
+        <textarea
+          id="feng-talk-content"
+          name="content"
+          maxlength="4000"
+          placeholder="此刻，想说点什么？"
+          rows="7"></textarea>
+        <div class="feng-talk-word-count"><span data-talk-words>0</span> / 4000</div>
+        <label class="feng-talk-field" for="feng-talk-keywords">
+          <span><Fragment set:html={icon('hash')} /> 关键词</span>
+          <input
+            id="feng-talk-keywords"
+            name="tags"
+            placeholder="生活，随想… 用逗号分隔，最多 4 个"
+            maxlength="100"
+          />
+        </label>
+        <div class="feng-talk-suggestions" data-talk-suggestions></div>
+        <label class="feng-talk-field" for="feng-talk-location">
+          <span><Fragment set:html={icon('pin')} /> 地点</span>
+          <input id="feng-talk-location" name="location" placeholder="可选，手动写下城市或地点" maxlength="60" />
+        </label>
+        <div class="feng-talk-upload-preview" data-talk-upload-preview></div>
+        <div class="feng-talk-form-error" data-talk-form-error role="alert"></div>
+        <footer>
+          <label class="feng-talk-add-image" for="feng-talk-images">
+            <Fragment set:html={icon('image')} /> 添加图片
+            <input
+              id="feng-talk-images"
+              name="images[]"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+            />
+          </label>
+          <small>最多 4 张 · 单张 4 MB</small>
+          <button type="submit" data-talk-submit>
+            <Fragment set:html={icon('arrow-up-right')} /><span>发布</span>
+          </button>
+        </footer>
+      </form>
+      <div class="feng-talk-discard" data-talk-discard hidden>
+        <p>还有未保存的内容，要继续编辑还是放弃？</p>
+        <button type="button" data-talk-continue>继续编辑</button>
+        <button type="button" data-talk-discard-confirm>放弃修改</button>
+      </div>
+    </dialog>
+
+    <noscript><p>可以直接浏览说说。发布、筛选和展开卡片需要开启 JavaScript。</p></noscript>
+  </section>
+</BaseLayout>

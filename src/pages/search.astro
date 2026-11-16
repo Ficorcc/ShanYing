@@ -1,0 +1,37 @@
+---
+/**
+ * 搜索页。需要读取查询参数，因此走服务端渲染。
+ */
+export const prerender = false;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BrowseList from '../components/BrowseList.astro';
+import { getPublishedMeta } from '../lib/content';
+
+const query = (Astro.url.searchParams.get('s') ?? Astro.url.searchParams.get('q') ?? '').trim();
+const keyword = query.toLowerCase();
+
+const posts = await getPublishedMeta();
+const results = keyword
+  ? posts.filter((post) => {
+      const haystack = [post.title, post.excerpt, post.category, ...post.tags, post.body]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(keyword);
+    })
+  : [];
+---
+
+<BaseLayout
+  title={query ? `搜索：${query}` : '搜索文章'}
+  description={query ? `与「${query}」相关的文章` : '从记录里，找回你感兴趣的片刻。'}
+  noindex
+>
+  <BrowseList
+    title={query || '搜索文章'}
+    posts={results}
+    mode="search"
+    query={query}
+    description="从记录里，找回你感兴趣的片刻。"
+  />
+</BaseLayout>
