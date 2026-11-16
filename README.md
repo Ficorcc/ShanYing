@@ -106,20 +106,10 @@ Node ≥ 22.23.4。
 
 ---
 
-## 常用命令
 
-| 命令 | 作用 |
-| :-- | :-- |
-| `npm run dev` | 本地开发（Node 运行时，文件存储），默认 <http://localhost:4321> |
-| `npm run dev:cf` | 本地开发（Cloudflare workerd 运行时，KV 存储） |
-| `npm run build` | 生产构建（Cloudflare Workers 产物），输出 `dist/client` + `dist/server` |
-| `npm run build:node` | 生产构建（Node standalone 产物） |
-| `npm run preview` | 用 workerd 预览构建产物 |
-| `npm run deploy` | 部署到 Cloudflare Workers（`wrangler deploy`） |
-| `npx astro check` | 类型与模板检查 |
-| `npx astro dev --background` | 后台启动 dev server（`status` / `logs` / `stop` 管理） |
 
----
+
+
 
 ## 部署到 Cloudflare
 
@@ -138,9 +128,9 @@ npx wrangler deploy    # 部署到 Workers
 npx wrangler login
 ```
 
-KV namespace **不用手动建**：`wrangler.jsonc` 里只写绑定名、不写 `id`，
-wrangler 会在部署时自动开通（`SHANYING_STORE` 是本站的，
-`SESSION` 是 Astro session 用的，适配器自动加）。
+KV namespace **不用手动建**：第一次部署时 `wrangler.jsonc` 里只写绑定名、不写 `id`，
+wrangler 会自动开通好并把 id 回填到配置里（KV id 不是密钥，可以直接入库）。
+`SHANYING_STORE` 是本站的运行期数据，`SESSION` 是 Astro session 用的（适配器强制要求）。
 
 `wrangler.jsonc` 里的关键项：
 
@@ -150,17 +140,33 @@ wrangler 会在部署时自动开通（`SHANYING_STORE` 是本站的，
 | `kv_namespaces[SHANYING_STORE]` | 运行期数据（留言 / 说说 / 宠物进度 / 浏览量）的存储 |
 | `compatibility_flags` | `nodejs_compat` |
 
-部署完成后，在 Cloudflare 控制台的 **Workers → Settings → Domains & Routes** 里
-把你的域名绑定到这个 Worker 即可。
+### Git 自动部署
 
-`wrangler.jsonc` 里的 `name` 决定 Worker 名字，也是 `*.workers.dev` 的第一段，
-换成你自己的。
+仓库里的 `.github/workflows/ci.yml` 会在 push 时自动做类型检查与构建。
 
-**CI**：仓库里的 `.github/workflows/ci.yml` 会在 push 时自动做类型检查与构建，
-确保这份主题在别的环境也能编过。
+要接自动部署，把 `.github/workflows/deploy.yml` 复制过去，并在仓库 **Secrets** 里加
+`CLOUDFLARE_API_TOKEN`（Workers 部署权限）、**variable** 加 `CLOUDFLARE_ACCOUNT_ID`；
+没配 secret 时工作流只构建不部署，任务依然通过，不会红叉。
+
+`wrangler login` 拿到的 OAuth token 只有几小时有效期，**不适合**当 CI 凭据，
+要用控制台签发的 API Token。
 
 ---
 
+## 常用命令
+
+| 命令 | 作用 |
+| :-- | :-- |
+| `npm run dev` | 本地开发（Node 运行时，文件存储），默认 <http://localhost:4321> |
+| `npm run dev:cf` | 本地开发（Cloudflare workerd 运行时，KV 存储） |
+| `npm run build` | 生产构建（Cloudflare Workers 产物），输出 `dist/client` + `dist/server` |
+| `npm run build:node` | 生产构建（Node standalone 产物） |
+| `npm run preview` | 用 workerd 预览构建产物 |
+| `npm run deploy` | 部署到 Cloudflare Workers（`wrangler deploy`） |
+| `npx astro check` | 类型与模板检查 |
+| `npx astro dev --background` | 后台启动 dev server（`status` / `logs` / `stop` 管理） |
+
+---
 ## 配置要点
 
 ### 站点信息
@@ -176,6 +182,8 @@ wrangler 会在部署时自动开通（`SHANYING_STORE` 是本站的，
 对应原 WordPress 后台设置面板（不复刻后台 UI，改为代码配置）。
 
 `article_stale_days` 默认置 0：站内若以回溯旧文为主，180 天的「未更新」提示会让每篇都挂横幅。
+
+
 
 ### 运行时存储位置
 
