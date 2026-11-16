@@ -4,8 +4,12 @@
  * 对应原 WordPress 主题的后台设置面板（functions.php + inc/inc-settings.php），
  * 移植成站点内的 /admin 页面配套 API。
  *
- * 安全：设置环境变量 `SHANYING_ADMIN_TOKEN` 后，所有写操作都需要带上
- * `token` 参数；未设置时视为本地开发模式，不做校验。
+ * 安全：两种身份认领方式，任一即可
+ *   1. 直接带管理令牌（`token` 参数或 `x-admin-token` 头）；
+ *   2. 带管理会话 Cookie（先用令牌登录换来的签名 Cookie）。
+ *
+ * 管理口令来自环境变量 `SHANYING_ADMIN_TOKEN`（Cloudflare 上是 Worker secret）：
+ * 没配置口令时接口整体关闭（fail closed），不做「开发模式全开」。
  */
 export const prerender = false;
 
@@ -13,12 +17,23 @@ import type { APIRoute } from 'astro';
 import { getStore, updateStore } from '../../lib/store';
 import { getPublishedMeta, activeLinks, publicMemos } from '../../lib/content';
 import { comments as seedComments, feed, links } from '../../lib/data';
+import {
+  clearSessionCookie,
+  createSession,
+  isAdmin,
+  secretConfigured,
+  sessionCookie,
+  tokenMatches,
+} from '../../lib/admin-session';
 
-function authorized(request: Request, params: URLSearchParams): boolean {
-  const expected = process.env.SHYANYING_ADMIN_TOKEN;
-  if (!expected) return true;
+const SECRET_MISSING = '未配置管理口令（SHANYING_ADMIN_TOKEN），管理接口已关闭。';
+
+/** 是否通过认证：令牌或会话 Cookie 任一成立即可。 */
+async function authorized(request: Request, params: URLSearchParams): Promise<boolean> {
+  if (!secretConfigured()) return false;
   const provided = params.get('token') ?? request.headers.get('x-admin-token') ?? '';
-  return provided === expected;
+  if (provided && tokenMatches(provided)) return true;
+  return isAdmin(request);
 }
 
 async function readParams(request: Request): Promise<URLSearchParams> {
@@ -56,7 +71,8 @@ const fail = (message: string, status = 400) =>
 
 export const GET: APIRoute = async ({ request }) => {
   const params = await readParams(request);
-  if (!authorized(request, params)) return fail('管理令牌不正确。', 401);
+  if (!secretConfigured()) return fail(SECRET_MISSING, 503);
+  if (!(await authorized(request, params))) return fail('管理令牌不正确，或会话已过期。', 401);
 
   const store = await getStore();
   const posts = await getPublishedMeta();
@@ -93,9 +109,35 @@ export const GET: APIRoute = async ({ request }) => {
 
 export const POST: APIRoute = async ({ request }) => {
   const params = await readParams(request);
-  if (!authorized(request, params)) return fail('管理令牌不正确。', 401);
-
   const action = params.get('action') ?? '';
+
+  // 登录 / 登出要在鉴权之前处理：登录本身就是换取会话的动作。
+  if (action === 'admin.login') {
+    if (!secretConfigured()) return fail(SECRET_MISSING, 503);
+    const token = params.get('token') ?? '';
+    if (!tokenMatches(token)) return fail('管理令牌不正确。', 401);
+    const value = await createSession();
+    const secure = new URL(request.url).protocol === 'https:';
+    return new Response(JSON.stringify({ success: true, data: { message: '已登录。' } }), {
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'set-cookie': sessionCookie(value, secure),
+      },
+    });
+  }
+
+  if (action === 'admin.logout') {
+    const secure = new URL(request.url).protocol === 'https:';
+    return new Response(JSON.stringify({ success: true, data: { message: '已退出登录。' } }), {
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'set-cookie': clearSessionCookie(secure),
+      },
+    });
+  }
+
+  if (!secretConfigured()) return fail(SECRET_MISSING, 503);
+  if (!(await authorized(request, params))) return fail('管理令牌不正确，或会话已过期。', 401);
 
   if (action === 'talk.save') {
     const content = (params.get('content') ?? '').trim();

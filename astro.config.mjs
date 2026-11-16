@@ -2,6 +2,7 @@
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'astro/config'
+import { loadEnv } from 'vite'
 
 import mdx from '@astrojs/mdx'
 import sitemap from '@astrojs/sitemap'
@@ -26,10 +27,31 @@ const platform =
 
 const isCloudflare = platform === 'cloudflare'
 
+// Node 平台的管理口令放在项目根目录的 .env 里（已被 .gitignore 忽略）。
+// Astro 不会把 .env 自动灌进 process.env，这里显式读一次，
+// 让 src/lib/admin-session/backend.node.ts 能拿到它。
+// Cloudflare 平台从 Worker secret 取，不受这里影响。
+if (!isCloudflare) {
+  const local = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '')
+  if (local.SHANYING_ADMIN_TOKEN && !process.env.SHANYING_ADMIN_TOKEN) {
+    process.env.SHANYING_ADMIN_TOKEN = local.SHANYING_ADMIN_TOKEN
+  }
+}
+
 // 运行期数据的落盘后端随平台切换：Node 用 var/store.json，Cloudflare 用 KV
 const storeBackend = fileURLToPath(
   new URL(
     isCloudflare ? './src/lib/store/backend.cloudflare.ts' : './src/lib/store/backend.node.ts',
+    import.meta.url,
+  ),
+)
+
+// 管理口令的读取方式也随平台切换：Node 读环境变量，Cloudflare 读 Worker secret
+const adminSecretBackend = fileURLToPath(
+  new URL(
+    isCloudflare
+      ? './src/lib/admin-session/backend.cloudflare.ts'
+      : './src/lib/admin-session/backend.node.ts',
     import.meta.url,
   ),
 )
@@ -48,6 +70,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@shanying/store-backend': storeBackend,
+        '@shanying/admin-secret': adminSecretBackend,
       },
     },
   },

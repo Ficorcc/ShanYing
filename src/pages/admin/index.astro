@@ -5,14 +5,18 @@
  * 替代原 WordPress 主题的后台设置面板：集中管理说说、评论与站点信息。
  * 界面沿用山映主题的配色变量，因此会跟随深浅配色。
  *
- * 安全：设置环境变量 `SHANYING_ADMIN_TOKEN` 后，页面会要求先输入令牌，
- * 之后所有写操作都会带上该令牌。
+ * 安全：管理口令来自环境变量 `SHANYING_ADMIN_TOKEN`
+ *（Cloudflare 上是 Worker secret，Node 上是 .env）。
+ * 输入口令后会换成一个 HttpOnly 的签名会话 Cookie，
+ * 前台说说页凭这个 Cookie 判断「是站长」，从而允许直接发布说说。
+ * 没配置口令时整个管理页关闭。
  */
 export const prerender = false;
 
 import { SITE } from '../../config/site';
+import { secretConfigured } from '../../lib/admin-session';
 
-const tokenEnabled = Boolean(process.env.SHYANYING_ADMIN_TOKEN);
+const tokenEnabled = secretConfigured();
 ---
 
 <!doctype html>
@@ -197,6 +201,27 @@ const tokenEnabled = Boolean(process.env.SHYANYING_ADMIN_TOKEN);
         min-height: 1.4em;
         margin: 10px 0 0;
       }
+      .feng-admin__head-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .feng-admin__head-actions .feng-admin__status {
+        margin: 0;
+      }
+      .feng-admin__logout {
+        border: 1px solid var(--xf-line);
+        background: transparent;
+        color: inherit;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .feng-admin__logout:hover {
+        border-color: var(--xf-accent);
+        color: var(--xf-accent);
+      }
       .feng-admin__gate {
         max-width: 360px;
         margin: 80px auto;
@@ -212,7 +237,11 @@ const tokenEnabled = Boolean(process.env.SHYANYING_ADMIN_TOKEN);
           <p class="feng-admin__kicker">SHANYING · CONTROL</p>
           <h1>站点管理</h1>
         </div>
-        <a class="xf-icon-button" href="/" aria-label="返回站点">←</a>
+        <div class="feng-admin__head-actions">
+          <span class="feng-admin__status" data-admin-status role="status"></span>
+          <button class="feng-admin__logout" type="button" data-admin-logout hidden>退出登录</button>
+          <a class="xf-icon-button" href="/" aria-label="返回站点">←</a>
+        </div>
       </header>
 
       {
@@ -230,7 +259,9 @@ const tokenEnabled = Boolean(process.env.SHYANYING_ADMIN_TOKEN);
           </section>
         ) : (
           <p class="feng-admin__status">
-            当前未设置 SHANYING_ADMIN_TOKEN，管理接口处于开放状态 —— 仅建议在本机开发时使用。
+            当前未配置管理口令（SHANYING_ADMIN_TOKEN），管理接口处于关闭状态。
+            本地开发请在项目根目录的 .env 里写入该变量后重启；Cloudflare 上请执行
+            <code>npx wrangler secret put SHANYING_ADMIN_TOKEN</code>。
           </p>
         )
       }
@@ -426,25 +457,53 @@ const tokenEnabled = Boolean(process.env.SHYANYING_ADMIN_TOKEN);
         function show() {
           if (gate) gate.hidden = true;
           root.hidden = false;
+          var logout = document.querySelector('[data-admin-logout]');
+          if (logout) logout.hidden = false;
           refresh();
         }
 
+        // 用管理口令换取签名会话 Cookie，之后前台说说页才能识别「是站长」。
+        function login() {
+          return api('/api/admin', { action: 'admin.login' });
+        }
+
         if (!tokenEnabled) {
-          show();
+          // 没有配置管理口令时保持关闭状态，不进入管理面板。
         } else if (token) {
-          show();
+          login()
+            .then(show)
+            .catch(function () {
+              if (gate) gate.hidden = false;
+              setStatus('[data-gate] .feng-admin__status', '登录状态已失效，请重新输入管理令牌。', true);
+            });
         } else {
           var gateForm = document.querySelector('[data-gate-form]');
           gateForm.addEventListener('submit', function (event) {
             event.preventDefault();
             token = gateForm.elements.token.value.trim();
-            try {
-              localStorage.setItem('shanying-admin-token', token);
-            } catch (e) {}
-            api('/api/admin')
-              .then(show)
+            login()
+              .then(function () {
+                try {
+                  localStorage.setItem('shanying-admin-token', token);
+                } catch (e) {}
+                show();
+              })
               .catch(function (error) {
                 setStatus('[data-gate] .feng-admin__status', error.message, true);
+              });
+          });
+        }
+
+        var logoutButton = document.querySelector('[data-admin-logout]');
+        if (logoutButton) {
+          logoutButton.addEventListener('click', function () {
+            api('/api/admin', { action: 'admin.logout' })
+              .then(function () {
+                logoutButton.hidden = true;
+                setStatus('[data-admin-status]', '已退出登录：前台的「发布说说」需要重新登录。');
+              })
+              .catch(function (error) {
+                setStatus('[data-admin-status]', error.message, true);
               });
           });
         }

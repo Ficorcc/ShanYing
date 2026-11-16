@@ -39,6 +39,7 @@ import { activityCalendar } from '../../lib/calendar';
 import { getStore, updateStore, type StoredComment } from '../../lib/store';
 import { loadTalks as sharedLoadTalks, type MergedTalk } from '../../lib/talks';
 import { loadAllComments } from '../../lib/comments';
+import { readSession } from '../../lib/admin-session';
 import {
   petIssueTicket,
   petRecord,
@@ -510,7 +511,7 @@ async function actionFeedList(params: URLSearchParams) {
   });
 }
 
-async function actionTalkRead(params: URLSearchParams) {
+async function actionTalkRead(params: URLSearchParams, request: Request) {
   const op = params.get('op') ?? 'list';
   const talks = await loadTalks();
 
@@ -519,10 +520,12 @@ async function actionTalkRead(params: URLSearchParams) {
     for (const talk of talks) {
       for (const keyword of talk.keywords ?? []) tags.set(keyword, (tags.get(keyword) ?? 0) + 1);
     }
+    // 只有带着管理会话（站长在 /admin 登录过）的人才允许发布与编辑说说。
+    const session = await readSession(request);
     return ok({
-      can_publish: false,
-      can_manage: false,
-      nonce: '',
+      can_publish: Boolean(session),
+      can_manage: Boolean(session),
+      nonce: session?.nonce ?? '',
       tags: [...tags.entries()].map(([name, count]) => ({
         id: name,
         name,
@@ -567,8 +570,14 @@ async function actionTalkRead(params: URLSearchParams) {
   });
 }
 
-async function actionTalkWrite(params: URLSearchParams) {
+async function actionTalkWrite(params: URLSearchParams, request: Request) {
   const op = params.get('op') ?? 'save';
+
+  // 写说说属于站长专属能力：必须带着有效会话（/admin 登录后拿到的 Cookie）。
+  const session = await readSession(request);
+  if (!session) return fail('请先在 /admin 登录后再发布说说。', 403);
+  const nonce = params.get('nonce') ?? '';
+  if (nonce && nonce !== session.nonce) return fail('会话已过期，请刷新页面后重试。', 403);
 
   if (op === 'save') {
     const content = (params.get('content') ?? '').trim();
@@ -834,7 +843,16 @@ async function actionAi() {
 /* 调度                                                                */
 /* ------------------------------------------------------------------ */
 
-const ACTIONS: Record<string, (params: URLSearchParams) => Promise<Response>> = {
+/**
+ * 动作处理器。
+ *
+ * 多数动作是公开的（读内容、留言、宠物互动）；
+ * 需要判断「是不是站长」的动作（比如发布说说）会用第二个参数里的请求，
+ * 从管理会话 Cookie 判定权限。
+ */
+type ActionHandler = (params: URLSearchParams, request: Request) => Promise<Response>;
+
+const ACTIONS: Record<string, ActionHandler> = {
   feng_activity: actionActivity,
   feng_hub: actionHub,
   feng_hero_activity: actionHeroActivity,
@@ -865,7 +883,7 @@ export const GET: APIRoute = async ({ request }) => {
   const handler = ACTIONS[action];
   if (!handler) return fail(`未知的动作：${action}`, 404);
   try {
-    return await handler(params);
+    return await handler(params, request);
   } catch (error) {
     console.error(`[feng] ${action} 处理失败`, error);
     return fail('服务器开小差了，请稍后再试。', 500);
@@ -878,7 +896,7 @@ export const POST: APIRoute = async ({ request }) => {
   const handler = ACTIONS[action];
   if (!handler) return fail(`未知的动作：${action}`, 404);
   try {
-    return await handler(params);
+    return await handler(params, request);
   } catch (error) {
     console.error(`[feng] ${action} 处理失败`, error);
     return fail('服务器开小差了，请稍后再试。', 500);

@@ -9,7 +9,10 @@
       // 平台相关的存储后端，由 astro.config.mjs 的 vite.resolve.alias 决定实际指向
       // （Node → src/lib/store/backend.node.ts，Cloudflare → backend.cloudflare.ts）。
       // 两个实现函数签名一致，类型检查固定指向 Node 版。
-      "@shanying/store-backend": ["./src/lib/store/backend.node.ts"]
+      "@shanying/store-backend": ["./src/lib/store/backend.node.ts"],
+      // 管理口令的读取方式，同样由 vite.resolve.alias 按平台切换
+      // （Node → src/lib/admin-session/backend.node.ts，Cloudflare → backend.cloudflare.ts）。
+      "@shanying/admin-secret": ["./src/lib/admin-session/backend.node.ts"]
     }
   }
 }

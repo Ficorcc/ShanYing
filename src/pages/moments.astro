@@ -70,8 +70,17 @@ const UPLOAD_LIMIT = 4 * 1024 * 1024;
         aria-controls="feng-talk-tags"
         set:html={icon('hash')}
       />
-      <button type="button" data-talk-create aria-label="发布说说" hidden set:html={icon('plus')} />
-      <a data-talk-login href="/admin/" aria-label="登录后发布说说" set:html={icon('person')} />
+      {/*
+        主题 JS 的编辑器触发器：必须留在 DOM 里（feng-talk 模块按它判断能不能发布），
+        但视觉上隐藏，由下面那颗「发布说说」按钮代为点击。
+      */}
+      <button type="button" class="screen-reader-text" data-talk-create aria-label="发布说说" set:html={icon('plus')} />
+      {/*
+        可见的发布入口：原主题这里放的是「登录后发布说说」的人形图标，
+        现在换成发布按钮 —— 已登录直接打开页内编辑器，未登录提示去 /admin 登录。
+      */}
+      <button type="button" data-talk-publish aria-label="发布说说" title="发布说说" set:html={icon('edit')} />
+      <a class="screen-reader-text" data-talk-login href="/admin/" aria-label="登录后发布说说" set:html={icon('person')} />
       <button
         type="button"
         data-talk-layout
@@ -155,7 +164,11 @@ const UPLOAD_LIMIT = 4 * 1024 * 1024;
         <div class="feng-talk-upload-preview" data-talk-upload-preview></div>
         <div class="feng-talk-form-error" data-talk-form-error role="alert"></div>
         <footer>
-          <label class="feng-talk-add-image" for="feng-talk-images">
+          {/*
+            图片暂不开放：运行期存储（var/store.json / KV）目前只保存文字说说，
+            选图会被静默丢弃，所以先把入口藏起来（input 保留，主题 JS 仍会读到它）。
+          */}
+          <label class="feng-talk-add-image" for="feng-talk-images" hidden>
             <Fragment set:html={icon('image')} /> 添加图片
             <input
               id="feng-talk-images"
@@ -180,4 +193,37 @@ const UPLOAD_LIMIT = 4 * 1024 * 1024;
 
     <noscript><p>可以直接浏览说说。发布、筛选和展开卡片需要开启 JavaScript。</p></noscript>
   </section>
+
+  <script>
+    /**
+     * 发布说说按钮。
+     *
+     * 主题的 feng-talk 模块把编辑器入口挂在 [data-talk-create] 上，
+     * 那个节点是视觉隐藏的（仅屏幕阅读器可达），由这颗可见按钮代为点击：
+     *   - 已登录（/admin 登录过，带着管理会话 Cookie）→ 直接打开页内编辑器；
+     *   - 未登录 → 模块会拒绝打开，这里补一条提示，指路到 /admin。
+     */
+    const publish = document.querySelector('[data-talk-publish]');
+    const trigger = document.querySelector('[data-talk-create]');
+
+    publish?.addEventListener('click', () => {
+      if (trigger instanceof HTMLElement) trigger.click();
+      window.setTimeout(() => {
+        const compose = document.querySelector('[data-talk-compose]');
+        if (compose instanceof HTMLDialogElement && compose.open) return;
+        // 没打开编辑器 = 当前不是站长。主题的提示条已经冒出来了，
+        // 这里把文案换成更明确的一句，指路到 /admin。
+        const message = '请先到 /admin/ 登录（输入管理口令）后再发布说说。';
+        const notice = document.querySelector('[data-talk-notice]');
+        const text = notice?.querySelector('span');
+        if (notice instanceof HTMLElement && text && !notice.hidden) {
+          text.textContent = message;
+        } else {
+          const toast = (window as unknown as { fengToast?: (text: string, kind?: string) => void })
+            .fengToast;
+          toast?.(message, 'error');
+        }
+      }, 80);
+    });
+  </script>
 </BaseLayout>

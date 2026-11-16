@@ -53,7 +53,7 @@ feng-image-fade, feng-greeting, feng-visitor-stats
 | `feng_feed_count` | GET | — | `data.today`, `data.midnight` | 否 |
 | `feng_feed_list` | GET | `page`, `today` | `data.html`, `data.total`, `data.more` | 否 |
 | `feng_talk_read` | GET | `op`(`session`/`list`/`detail`), `page`, `id` | `op=session` → `can_publish`/`can_manage`/`nonce`/`tags[]`；`op=list` → `html`/`total`/`more`；`op=detail` → `id`/`content`/`date_label`/`location`/`tags[]`/`images[]` | 否 |
-| `feng_talk_write` | POST(FormData) | `op`(`save`/`delete`), `id`, `content`, `tags`, `location` | 仅 `success`，错误读 `data.message` | **是** |
+| `feng_talk_write` | POST(FormData) | `op`(`save`/`delete`), `id`, `content`, `tags`, `location`, `nonce` | 仅 `success`，错误读 `data.message` | **是**（须带管理会话 Cookie，缺失返回 403） |
 | `feng_comment` | POST(FormData) | `comment`, `author`, `email`, `url` | `data.message`, `data.url` | **是** |
 | `feng_comment_self_edit` | POST | `id`, `token`, `content` | `data.content` | **是** |
 | `feng_card_color` | GET | `post_id` | `data.color` | 否 |
@@ -66,6 +66,22 @@ feng-image-fade, feng-greeting, feng-visitor-stats
 | 路由 | 方法 | 参数 | 响应 | 说明 |
 | --- | --- | --- | --- | --- |
 | `GET /api/comment-location/{id}` | GET | path `id` | `{ label, code }`（**无信封**） | 评论地理位置；`code` 为 2 位小写国码 |
+
+管理接口 `/api/admin`（管理页专用，与上面是两条独立路由）：
+
+| 动作 | 方法 | 参数 | 认证 | 说明 |
+| --- | --- | --- | --- | --- |
+| `GET /api/admin` | GET | `token`（可选） | 管理令牌 **或** 会话 Cookie | 概览 / 说说 / 评论 / 站点信息 |
+| `POST /api/admin` `admin.login` | POST | `token` | 管理令牌 | 校验口令，**下发签名会话 Cookie**（`Set-Cookie: shanying_admin=…; HttpOnly; SameSite=Lax`） |
+| `POST /api/admin` `admin.logout` | POST | — | 无 | 清除会话 Cookie |
+| `POST /api/admin` 其余动作 | POST | `token` 或会话 Cookie | 管理令牌 **或** 会话 Cookie | `talk.save` / `talk.delete` / `comment.approve` / `comment.delete` / `settings.save` |
+
+认证口径：
+
+- 管理口令来自 `SHANYING_ADMIN_TOKEN`（Node 读 `.env`/环境变量，Cloudflare 读 Worker secret）。
+  **没配置口令时整个 `/api/admin` 关闭**（返回 503），不做开发模式全开。
+- 会话 Cookie 里只放「过期时间 + HMAC-SHA256 签名」，不放口令；口令一改，旧会话立刻失效。
+- 前台说说页靠这个 Cookie 判断能不能发布（见 §3 说说）。
 
 只给后台用的动作：`feng_feed_refresh`、`feng_ai`。
 
@@ -138,9 +154,18 @@ feng-image-fade, feng-greeting, feng-visitor-stats
 - 说说：`[data-feng-talks]`（带 `data-endpoint`/`data-upload-*`/`data-page-url`）
   + `[data-talk-board]`（内容由 `feng_talk_read` 整体替换）+ 30 余个子选择器，
   详见 `src/pages/moments.astro`。
-- 友链：`[data-friend-game]`（带 `data-endpoint`/`data-nonce`）、`[data-game-wall]`
-  > `[data-game-friend]`、`[data-game-area]`/`[data-game-board]`/`[data-game-ranking]`，
-  以及 `dialog#friend-application` / `#friend-site-info` / `#friend-game-ranks`。
+  - 底部工具栏：`[data-talk-publish]` 是**可见的发布按钮**（原主题此处是「登录后发布说说」的
+    人形图标，现已改为发布按钮）；它点击时代为点击视觉隐藏的 `[data-talk-create]`
+    —— 主题 JS 只认后者（`feng-talk` 模块按它决定能不能发布），所以两个节点都必须留在 DOM 里。
+  - `[data-talk-login]`（→ `/admin/`）同样保留但视觉隐藏，主题 JS 会按登录状态切换它的 `hidden`。
+  - 权限来自 `feng_talk_read?op=session` 的 `can_publish`：有管理会话 Cookie 时为真，
+    此时点发布按钮直接打开页内编辑器；否则提示去 `/admin` 登录。
+- 友链：`.feng-friend-group` > `.feng-friends` > `a.feng-friend-chip`（内含
+  `img[data-friend-fallback]` + `.feng-friend-avatar-initial`），
+  以及 `dialog#friend-application` / `#friend-site-info`。
+  原主题的配对游戏区（`[data-friend-game]`、`[data-game-wall]`、`[data-emoji-game]`、
+  `[data-game-player]`、`dialog#friend-game-ranks`）已在本站移除，前端 JS 对应模块
+  均带 DOM 守卫，缺失时不会报错。
 - 订阅：`[data-feed-page]` > `[data-feed-entries]`（内容由 `feng_feed_list` 整体替换）
   + `[data-feed-status]`/`[data-feed-more]`/`[data-feed-empty]`/`[data-feed-period]`。
 

@@ -25,6 +25,21 @@ noscript .xf-global-loading {
 }
 
 /* ---------------------------------------------------------------------------
+ * 说说页底部的发布按钮
+ *
+ * 主题样式给 [data-talk-create] 用了强调色；可见的发布按钮是
+ * [data-talk-publish]，视觉上沿用同一套处理。
+ * ------------------------------------------------------------------------- */
+.feng-talk-dock [data-talk-publish] {
+  color: var(--xf-accent);
+}
+
+.feng-talk-dock [data-talk-publish] .feng-icon {
+  width: 23px;
+  height: 23px;
+}
+
+/* ---------------------------------------------------------------------------
  * 正文里的多图网格
  *
  * 旧博客导出的正文带 <div class="lared-grid-2"> / <div class="lared-grid-3"> / <div class="lared-grid-4">，
