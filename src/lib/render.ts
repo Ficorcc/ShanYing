@@ -199,9 +199,12 @@ export function renderFeedRows(rows: FeedRow[]): string {
   return rows
     .map(
       (row) => `<article class="feng-feed-entry" data-feed-entry>
- <div class="feng-feed-entry-head"><span class="feng-feed-entry-source">${esc(row.source)}</span>${row.date ? `<time datetime="${esc(row.date)}">${esc(row.date)}</time>` : ''}</div>
- <h3><a href="${esc(row.url)}" target="_blank" rel="noopener noreferrer">${esc(row.title)}</a></h3>
- ${row.summary ? `<p>${esc(row.summary)}</p>` : ''}
+ <span class="feng-feed-entry__mark" aria-hidden="true">${esc(row.source.slice(0, 1))}</span>
+ <div class="feng-feed-entry__body">
+  <div class="feng-feed-entry__meta"><span>${esc(row.source)}</span><span>·</span>${row.date ? `<time datetime="${esc(row.date)}">${esc(row.date)}</time>` : ''}</div>
+  <h2><a href="${esc(row.url)}" target="_blank" rel="noopener noreferrer">${esc(row.title)}</a></h2>
+  ${row.summary ? `<p>${esc(row.summary)}</p>` : ''}
+ </div>
 </article>`,
     )
     .join('');
@@ -240,14 +243,17 @@ export function renderDashboard(data: DashboardData): string {
         .join('')
     : '<p class="feng-dashboard-empty">还没有公开的文章分类。</p>';
 
+  // 原主题的「最新文章 / 热门阅读」用 .feng-dashboard-posts 这套结构与样式
+  // （ul > li > a > time + span，日期一列、标题一列），这里保持一致，
+  // 不要换成自定义类名，否则会退回成没有样式的行内文字。
   const postRows = (posts: PostMeta[]) =>
     posts.length
-      ? posts
+      ? `<ul class="feng-dashboard-posts">${posts
           .map(
             (post) =>
-              `<a class="feng-dash-post" href="${esc(post.url)}"><span class="feng-dash-post-title">${esc(post.title)}</span><time datetime="${esc(post.iso)}">${esc(shortDate(post.date))}</time></a>`,
+              `<li><a href="${esc(post.url)}"><time datetime="${esc(post.iso)}">${esc(shortDate(post.date))}</time><span>${esc(post.title)}</span></a></li>`,
           )
-          .join('')
+          .join('')}</ul>`
       : '<p class="feng-dashboard-empty">还没有公开文章。</p>';
 
   const talks = data.talks.length
@@ -358,12 +364,15 @@ export function renderCommentItem(comment: Comment, anchor: string): string {
   const reply = comment.reply
     ? `<div class="feng-comment-reply"><strong>作者回复：</strong>${esc(comment.reply)}</div>`
     : '';
-  return `<li class="feng-comment-item" id="${esc(anchor)}">
- <span class="feng-comment-avatar" aria-hidden="true">${esc(comment.author.slice(0, 1))}</span>
- <div class="feng-comment-body">
-  <div class="feng-comment-meta"><strong>${esc(comment.author)}</strong><time datetime="${esc(comment.date)}">${esc(relativeTime(comment.date))}</time></div>
-  <p>${esc(comment.content)}</p>
-  ${reply}
- </div>
+  // 结构对齐原主题 inc-comment.php 的 feng_comment()：
+  // li.feng-comment > article.feng-comment__body > .feng-comment__avatar + .feng-comment__main
+  return `<li class="feng-comment" id="${esc(anchor)}">
+ <article class="feng-comment__body">
+  <div class="feng-comment__avatar"><span class="feng-avatar-initial" aria-hidden="true">${esc(comment.author.slice(0, 1))}</span></div>
+  <div class="feng-comment__main">
+   <header class="feng-comment__heading"><div class="feng-comment__identity"><b>${esc(comment.author)}</b><time class="feng-comment__date feng-comment-tip" tabindex="0" datetime="${esc(comment.date)}">${esc(relativeTime(comment.date))}</time></div></header>
+   <div class="feng-comment__text"><p>${esc(comment.content)}</p>${reply}</div>
+  </div>
+ </article>
 </li>`;
 }
