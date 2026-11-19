@@ -1,5 +1,5 @@
 {
-  "name": "shanying-astro-theme",
+  "name": "ficor-s-astro",
   "type": "module",
   "version": "0.0.1",
   "engines": {
@@ -14,6 +14,7 @@
     "preview:node": "SHANYING_PLATFORM=node astro preview",
     "deploy": "wrangler deploy",
     "check": "astro check",
+    "refresh:feeds": "node scripts/refresh-feeds.mjs",
     "astro": "astro"
   },
   "dependencies": {
@@ -26,10 +27,9 @@
     "astro": "^7.4.12"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.12",
+    "@astrojs/check": "^0.9.2",
     "@cloudflare/workers-types": "^5.20261115.1",
     "typescript": "^6.0.3",
     "wrangler": "^4.162.0"
-  },
-  "description": "山映 ShanYing 的 Astro 主题移植版：WordPress 前台逐像素还原，PHP 模板层重写为 Astro 组件。"
+  }
 }

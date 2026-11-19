@@ -34,7 +34,7 @@ const todayCount = rows.filter((row) => (row.date ?? '').startsWith(today)).leng
         <span><Fragment set:html={icon('rss')} /> <strong>{sources.length}</strong> 个订阅</span>
         <span><strong data-feed-today-number>{todayCount}</strong> 篇今日更新</span>
         <span class="feng-feed-last-sync">
-          <Fragment set:html={icon('clock')} /> <span>由 CMS 后台同步</span>
+          <Fragment set:html={icon('clock')} /> <span>友链 RSS · 30 分钟缓存</span>
         </span>
       </div>
     </header>
@@ -44,6 +44,14 @@ const todayCount = rows.filter((row) => (row.date ?? '').startsWith(today)).leng
         <button type="button" data-feed-period="all" aria-pressed="true">全部动态</button>
         <button type="button" data-feed-period="today" aria-pressed="false">今日更新</button>
       </div>
+      {/*
+        刷新：跳过缓存，重新抓一遍各订阅源的 RSS。
+        主题的 feng-feed 模块负责日常加载，这个按钮走 feng_feed_refresh，
+        抓完直接替换 [data-feed-entries]。
+      */}
+      <button type="button" class="feng-feed-refresh" data-feed-refresh>
+        <Fragment set:html={icon('refresh')} /> 刷新订阅
+      </button>
     </div>
 
     <p class="feng-feed-status" data-feed-status role="status">
@@ -69,4 +77,41 @@ const todayCount = rows.filter((row) => (row.date ?? '').startsWith(today)).leng
       <span>按原文发布时间排序 · 点击标题前往朋友的博客</span>
     </footer>
   </div>
+
+  <script is:inline>
+    /*
+      「刷新订阅」按钮：跳过 30 分钟缓存，重新抓一遍各订阅源的 RSS，
+      抓完直接替换 [data-feed-entries]（主题的 feng-feed 模块也用这个容器）。
+    */
+    (function () {
+      var button = document.querySelector('[data-feed-refresh]');
+      if (!button) return;
+      button.addEventListener('click', function () {
+        var entries = document.querySelector('[data-feed-entries]');
+        var status = document.querySelector('[data-feed-status]');
+        var empty = document.querySelector('[data-feed-empty]');
+        var label = button.innerHTML;
+        button.disabled = true;
+        button.textContent = '刷新中…';
+        fetch('/api/ajax?action=feng_feed_refresh&force=1&page=1', { credentials: 'same-origin' })
+          .then(function (response) {
+            return response.json();
+          })
+          .then(function (result) {
+            if (!result.success) throw new Error((result.data && result.data.message) || '刷新失败');
+            var data = result.data;
+            if (entries) entries.innerHTML = data.html;
+            if (status) status.textContent = '共 ' + data.total + ' 篇文章 · 刚刚刷新';
+            if (empty) empty.hidden = !!data.total;
+          })
+          .catch(function (error) {
+            if (status) status.textContent = error.message;
+          })
+          .finally(function () {
+            button.disabled = false;
+            button.innerHTML = label;
+          });
+      });
+    })();
+  </script>
 </BaseLayout>

@@ -25,6 +25,69 @@ noscript .xf-global-loading {
 }
 
 /* ---------------------------------------------------------------------------
+ * 友链条目上的订阅地址
+ *
+ * 友链本身是一个 <a>，里面不能再套 <a>，所以把「RSS 入口」放在同一行的
+ * 兄弟节点上，用 .feng-friend-item 包一层。
+ * ------------------------------------------------------------------------- */
+.feng-friend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.feng-friend-feed {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--xf-muted);
+  text-decoration: none;
+  transition: color .2s, background .2s;
+}
+
+.feng-friend-feed:hover {
+  color: var(--xf-accent);
+  background: var(--xf-soft);
+}
+
+.feng-friend-feed svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 订阅页的「立即刷新」
+ *
+ * 订阅内容来自 src/config/feed.json（构建期数据），
+ * 页面上的这个按钮只是提示该去哪里刷新，避免访客点了没反应。
+ * ------------------------------------------------------------------------- */
+.feng-feed-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--xf-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 10px;
+}
+
+.feng-feed-refresh:hover {
+  color: var(--xf-accent);
+  background: var(--xf-soft);
+}
+
+.feng-feed-refresh svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---------------------------------------------------------------------------
  * 控制面板的「最新文章 / 热门阅读」
  *
  * 列表结构用主题自带的 .feng-dashboard-posts（ul > li > a > time + span），

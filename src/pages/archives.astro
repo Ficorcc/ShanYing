@@ -88,22 +88,6 @@ const pad = (value: number) => String(value).padStart(2, '0');
         </div>
       </section>
 
-      <section class="feng-archive-tag-section">
-        <header class="feng-archive-section-heading">
-          <h2><i class="fa-solid fa-tags" aria-hidden="true"></i> 标签</h2>
-          <span>{tags.length} 个</span>
-        </header>
-        <div class="feng-archive-tag-list">
-          {
-            tags.map((tag) => (
-              <a href={`/tags/${encodeURIComponent(tag.name)}/`}>
-                {tag.name} <sup>{tag.count}</sup>
-              </a>
-            ))
-          }
-        </div>
-      </section>
-
       {
         years.map(([year, months]) => (
           <section class="feng-archive-year" id={`archive-year-${year}`}>
@@ -147,6 +131,25 @@ const pad = (value: number) => String(value).padStart(2, '0');
           </section>
         ))
       }
+
+      {/*
+        标签放在文章列表之后：先按年月读文章，读完再按标签横向浏览。
+      */}
+      <section class="feng-archive-tag-section">
+        <header class="feng-archive-section-heading">
+          <h2><i class="fa-solid fa-tags" aria-hidden="true"></i> 标签</h2>
+          <span>{tags.length} 个</span>
+        </header>
+        <div class="feng-archive-tag-list">
+          {
+            tags.map((tag) => (
+              <a href={`/tags/${encodeURIComponent(tag.name)}/`}>
+                {tag.name} <sup>{tag.count}</sup>
+              </a>
+            ))
+          }
+        </div>
+      </section>
 
       {posts.length === 0 && <p class="feng-empty">还没有公开的文章。</p>}
     </div>

@@ -23,7 +23,7 @@ import {
   activeLinks,
   type PostMeta,
 } from '../../lib/content';
-import { feed, type Comment } from '../../lib/data';
+import { type Comment } from '../../lib/data';
 import {
   renderActivityRows,
   renderCollectionList,
@@ -36,6 +36,7 @@ import {
   type ActivityEntry,
 } from '../../lib/render';
 import { activityCalendar } from '../../lib/calendar';
+import { loadSubscriptions } from '../../lib/feed';
 import { getStore, updateStore, type StoredComment } from '../../lib/store';
 import { loadTalks as sharedLoadTalks, type MergedTalk } from '../../lib/talks';
 import { loadAllComments } from '../../lib/comments';
@@ -469,7 +470,7 @@ async function actionVisitorStats(params: URLSearchParams) {
 }
 
 async function actionFeedCount() {
-  const sources = feed.subscriptions ?? [];
+  const sources = await loadSubscriptions();
   const today = new Date().toISOString().slice(0, 10);
   const count = sources.reduce(
     (sum, source) =>
@@ -482,7 +483,7 @@ async function actionFeedCount() {
 }
 
 async function actionFeedList(params: URLSearchParams) {
-  const sources = feed.subscriptions ?? [];
+  const sources = await loadSubscriptions();
   const onlyToday = params.get('today') === '1';
   const today = new Date().toISOString().slice(0, 10);
 
@@ -831,8 +832,29 @@ async function actionFriendSendCode() {
   return fail('验证码发送暂未开放，请直接通过邮箱联系。', 501);
 }
 
-async function actionFeedRefresh() {
-  return fail('订阅同步需要在 CMS 后台执行。', 501);
+/**
+ * 强制刷新订阅：跳过缓存，重新抓一遍各订阅源的 RSS，
+ * 返回和 feng_feed_list 一样的结构，订阅页可以直接替换列表。
+ */
+async function actionFeedRefresh(params: URLSearchParams) {
+  const sources = await loadSubscriptions(params.get('force') === '1');
+  const rows = sources.flatMap((source) =>
+    (source.latestItems ?? []).map((item) => ({
+      title: item.title,
+      url: item.url,
+      date: item.date,
+      summary: item.summary,
+      source: source.name,
+    })),
+  );
+  const perPage = 30;
+  const page = Math.max(1, num(params.get('page'), 1));
+  return ok({
+    html: renderFeedRows(rows.slice((page - 1) * perPage, page * perPage)),
+    total: rows.length,
+    more: rows.length > perPage * page,
+    page,
+  });
 }
 
 async function actionAi() {

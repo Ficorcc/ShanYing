@@ -195,13 +195,22 @@ export interface FeedRow {
   source: string;
 }
 
+/** 订阅条目的日期：ISO → 2026.09.16 */
+const feedDate = (iso?: string) => {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.valueOf())) return iso;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
+};
+
 export function renderFeedRows(rows: FeedRow[]): string {
   return rows
     .map(
       (row) => `<article class="feng-feed-entry" data-feed-entry>
  <span class="feng-feed-entry__mark" aria-hidden="true">${esc(row.source.slice(0, 1))}</span>
  <div class="feng-feed-entry__body">
-  <div class="feng-feed-entry__meta"><span>${esc(row.source)}</span><span>·</span>${row.date ? `<time datetime="${esc(row.date)}">${esc(row.date)}</time>` : ''}</div>
+  <div class="feng-feed-entry__meta"><span>${esc(row.source)}</span><span>·</span>${row.date ? `<time datetime="${esc(row.date)}">${esc(feedDate(row.date))}</time>` : ''}</div>
   <h2><a href="${esc(row.url)}" target="_blank" rel="noopener noreferrer">${esc(row.title)}</a></h2>
   ${row.summary ? `<p>${esc(row.summary)}</p>` : ''}
  </div>
