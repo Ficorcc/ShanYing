@@ -107,24 +107,15 @@ const EMOJIS: Record<string, string> = {
     )
   }
 
-  <form
-    id="commentform"
-    class="comment-form feng-comment-form"
-    method="post"
-    action="/api/ajax"
-    data-post-id={postId}
-    data-guestbook={guestbook ? 'true' : undefined}
-  >
-    {/*
-      端点必须放在表单内部的隐藏域上：
-      前端 app.js 用 `commentForm.querySelector('[data-feng-comment-endpoint]')` 取值，
-      查的是表单的后代元素，挂在表单自身上会取不到（原生提交就会生效，JS 不接管）。
-    */}
-    <input type="hidden" name="action" value="feng_comment" />
-    <input type="hidden" name="feng_comment_nonce" value="shanying" data-feng-comment-endpoint="/api/ajax" />
-    <input type="hidden" name="post_id" value={postId} />
-
-    <h3 class="feng-comment-title">
+  {/*
+    结构对齐原主题 comments.php：
+    - 标题 h3 必须在表单「外面」，它是 .feng-comments .comment-reply-title
+      （display:flex），.feng-form-identity 的 margin-left:auto 靠它推到右侧；
+      若把 h3 放进 .feng-comment-form（display:grid），标题会被排到表单最末一行。
+    - 提交按钮必须包在 p.form-submit 里，它是 grid 第 4 列（grid-column:4）。
+  */}
+  <div id="respond" class="comment-respond">
+    <h3 id="reply-title" class="comment-reply-title feng-comment-title">
       <span class="feng-comment-title-icon" aria-hidden="true" set:html={icon('comment')} />
       {guestbook ? '留一句话吧' : '来几句走心的评论吧'}
       {/*
@@ -137,88 +128,117 @@ const EMOJIS: Record<string, string> = {
       </span>
     </h3>
 
-    <p class="comment-form-author">
-      <span class="feng-field-icon" set:html={icon('person')} />
-      <label class="screen-reader-text" for="author">昵称 *</label>
-      <input
-        id="author"
-        name="author"
-        type="text"
-        autocomplete="name"
-        maxlength="245"
-        placeholder="名称 *"
-        required
-        aria-required="true"
-      />
-    </p>
-
-    <p class="comment-form-email">
-      <span class="feng-field-icon" set:html={icon('email')} />
-      <label class="screen-reader-text" for="email">邮箱 *</label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autocomplete="email"
-        maxlength="100"
-        placeholder="邮箱 *"
-        required
-        aria-required="true"
-      />
-    </p>
-
-    <p class="comment-form-url">
-      <span class="feng-field-icon" set:html={icon('link')} />
-      <label class="screen-reader-text" for="url">网站（选填）</label>
-      <input
-        id="url"
-        name="url"
-        type="url"
-        autocomplete="url"
-        maxlength="200"
-        placeholder="博客链接（选填）"
-      />
-    </p>
-
-    <div class="comment-form-comment">
-      <label class="screen-reader-text" for="comment">你的留言 *</label>
-      <textarea
-        id="comment"
-        name="comment"
-        rows="7"
-        required
-        aria-required="true"
-        placeholder={THEME.comment_placeholder}
-      />
-      <div class="feng-emoji-bar wp-exclude-emoji" data-feng-emojis hidden>
-        <div class="feng-emoji-options">
-          {Object.entries(EMOJIS).map(([emoji, label]) => (
-            <button type="button" data-feng-emoji={emoji} aria-label={`插入表情：${label}`} title={label}>
-              {emoji}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          class="feng-emoji-more"
-          data-feng-emoji-more
-          aria-label="展开更多表情"
-          aria-expanded="false"
-          set:html={icon('plus')}
-        />
-      </div>
-    </div>
-
-    <p class="feng-form-status" role="status" aria-live="polite" data-feng-comment-status></p>
-
-    <button
-      class="submit feng-submit"
-      type="submit"
-      name="comment"
-      id="submit"
-      aria-label="提交评论"
+    <form
+      id="commentform"
+      class="comment-form feng-comment-form"
+      method="post"
+      action="/api/ajax"
+      data-post-id={postId}
+      data-guestbook={guestbook ? 'true' : undefined}
     >
-      <Fragment set:html={icon('comment')} /><span class="feng-submit-label" aria-hidden="true">提交评论</span>
-    </button>
-  </form>
+      {/*
+        端点必须放在表单内部的隐藏域上：
+        前端 app.js 用 `commentForm.querySelector('[data-feng-comment-endpoint]')` 取值，
+        查的是表单的后代元素，挂在表单自身上会取不到（原生提交就会生效，JS 不接管）。
+      */}
+      <input type="hidden" name="action" value="feng_comment" />
+      <input type="hidden" name="feng_comment_nonce" value="shanying" data-feng-comment-endpoint="/api/ajax" />
+      <input type="hidden" name="post_id" value={postId} />
+
+      {/*
+        文本域是 grid 第 1 行（grid-row:1），内部含表情栏。
+        JS 会给它的宿主追加 .feng-placeholder-window 做浮动占位动画，
+        因此 textarea 必须直接是这个 div 的子元素。
+      */}
+      <div class="comment-form-comment">
+        <label class="screen-reader-text" for="comment">你的留言 *</label>
+        <textarea
+          id="comment"
+          name="comment"
+          rows="7"
+          required
+          aria-required="true"
+          placeholder={THEME.comment_placeholder}
+        />
+        <div class="feng-emoji-bar wp-exclude-emoji" data-feng-emojis hidden>
+          <div class="feng-emoji-options">
+            {Object.entries(EMOJIS).map(([emoji, label]) => (
+              <button type="button" data-feng-emoji={emoji} aria-label={`插入表情：${emoji} ${label}`} title={label}>
+                {emoji}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            class="feng-emoji-more"
+            data-feng-emoji-more
+            aria-label="展开更多表情"
+            aria-expanded="false"
+            set:html={icon('plus')}
+          />
+        </div>
+      </div>
+
+      <p class="comment-form-author">
+        <span class="feng-field-icon" set:html={icon('person')} />
+        <label class="screen-reader-text" for="author">昵称 *</label>
+        <input
+          id="author"
+          name="author"
+          type="text"
+          autocomplete="name"
+          maxlength="245"
+          placeholder="名称 *"
+          required
+          aria-required="true"
+        />
+      </p>
+
+      <p class="comment-form-email">
+        <span class="feng-field-icon" set:html={icon('email')} />
+        <label class="screen-reader-text" for="email">邮箱 *</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          maxlength="100"
+          placeholder="邮箱 *"
+          required
+          aria-required="true"
+        />
+      </p>
+
+      <p class="comment-form-url">
+        <span class="feng-field-icon" set:html={icon('link')} />
+        <label class="screen-reader-text" for="url">网站（选填）</label>
+        <input
+          id="url"
+          name="url"
+          type="url"
+          autocomplete="url"
+          maxlength="200"
+          placeholder="博客链接（选填）"
+        />
+      </p>
+
+      {/*
+        提交按钮：.feng-comment-form 是 grid，p.form-submit 落在第 4 列
+        （grid-column:4; grid-row:2），按钮本体在 hover 时展开成胶囊。
+      */}
+      <p class="form-submit">
+        <button
+          class="submit feng-submit"
+          type="submit"
+          name="comment"
+          id="submit"
+          aria-label="提交评论"
+        >
+          <Fragment set:html={icon('comment')} /><span class="feng-submit-label" aria-hidden="true">提交评论</span>
+        </button>
+      </p>
+
+      <p class="feng-form-status" role="status" aria-live="polite" data-feng-comment-status></p>
+    </form>
+  </div>
 </section>
