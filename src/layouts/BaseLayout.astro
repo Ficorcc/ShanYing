@@ -203,6 +203,9 @@ const siteClass = [
       id="feng-config"
       set:html={JSON.stringify(frontendConfig)}
     />
+
+    <!-- 站点统计（stats.ficor.net），放在 </head> 之前 -->
+    <script is:inline defer data-domain="ficor.cn" src="https://stats.ficor.net/script.js"></script>
   </head>
 
   <body class={bodyClass}>
